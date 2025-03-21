@@ -11,7 +11,7 @@
 int client_socket; // Global variable for the thread
 
 // Thread to receive messages from the server
-void *receive_messages(void *arg) {
+void *receive_messages() {
     char buffer[BUFFER_SIZE];
 
     while (1) {
