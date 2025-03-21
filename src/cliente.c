@@ -5,7 +5,7 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 
-#define PUERTO 12346
+#define PUERTO 1234
 #define BUFFER_SIZE 1024
 
 int cliente; // Variable global para el hilo
