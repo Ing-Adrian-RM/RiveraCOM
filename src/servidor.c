@@ -8,7 +8,7 @@
 
 #define PORT 1234
 #define BUFFER_SIZE 1024
-#define SERVER "192.168.8.105"
+#define SERVER "192.168.1.105"
 #define USER "RIVERA_USER"
 #define PASSWORD "8790"
 #define DATABASE "RIVERACOM_DB"
@@ -152,17 +152,7 @@ void *handleClient(void *arg) {
             snprintf(response, sizeof(response), "Sure, %.900s! You can ask me about your account, balance, or other services.\n", name);
         } else if (strstr(buffer, "bye")) {
             snprintf(response, sizeof(response), "Goodbye, %.900s! Have a great day!\n", name);
-            // Center the response message
-            int terminal_width = 80; // Adjust this based on your terminal width
-            int response_length = strlen(response);
-            int padding = (terminal_width - response_length) / 2;
-            if (padding > 0) {
-                char centered_response[BUFFER_SIZE];
-                snprintf(centered_response, sizeof(centered_response), "%*s%.900s", padding, "", response);
-                send(client_socket, centered_response, strlen(centered_response), 0);
-            } else {
-                send(client_socket, response, strlen(response), 0);
-            }
+            send(client_socket, response, strlen(response), 0);
             printf("%s has disconnected.\n", name);
             close(client_socket);
             break;

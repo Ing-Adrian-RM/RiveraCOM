@@ -8,18 +8,10 @@
 
 #define PORT 1234
 #define BUFFER_SIZE 1024
-#define SERVER "192.168.8.105"
+#define SERVER "192.168.1.105"
 
 int client_socket; // Global variable for the thread
 WINDOW *chat_win, *input_win;
-
-// Function to center text in a window
-void print_centered(WINDOW *win, int starty, int width, const char *text) {
-    int length = strlen(text);
-    int x = (width - length) / 2;
-    mvwprintw(win, starty, x, "%s", text);
-    wrefresh(win);
-}
 
 // Thread to receive messages from the server
 void *receive_messages() {
@@ -30,7 +22,8 @@ void *receive_messages() {
         int bytes_read = read(client_socket, buffer, BUFFER_SIZE);
 
         if (bytes_read <= 0) {
-            print_centered(chat_win, 1, getmaxx(chat_win), "Server disconnected");
+            wprintw(chat_win, "Server disconnected\n");
+            wrefresh(chat_win);
             close(client_socket);
             endwin(); // Close ncurses
             exit(0);
@@ -92,7 +85,7 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
-    print_centered(chat_win, 1, getmaxx(chat_win), "Connected to the server. Type 'exit' to terminate.");
+    wprintw(chat_win, "Connected to the server. Type 'exit' to terminate.\n");
     wrefresh(chat_win);
 
     // Create a thread to receive messages from the server
@@ -113,7 +106,7 @@ int main() {
         send(client_socket, buffer, strlen(buffer), 0);
 
         if (strncmp(buffer, "exit", 4) == 0) {
-            print_centered(chat_win, 1, getmaxx(chat_win), "Closing connection...");
+            wprintw(chat_win, "Closing connection...\n");
             wrefresh(chat_win);
             close(client_socket);
             endwin(); // Close ncurses
