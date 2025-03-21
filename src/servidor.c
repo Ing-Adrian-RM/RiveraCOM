@@ -18,17 +18,16 @@ int client, server;
 struct sockaddr_in server_addr, client_addr;
 socklen_t addr_size = sizeof(client_addr);
 
-
-// Hilo para enviar mensajes al cliente
+// Thread to send messages to the client
 void *send_messages(void *arg) {
     char buffer[BUFFER_SIZE];
 
     while (1) {
         fgets(buffer, BUFFER_SIZE, stdin);
-        buffer[strcspn(buffer, "\n")] = 0; // Eliminar el salto de línea
+        buffer[strcspn(buffer, "\n")] = 0; // Remove newline character
         send(client, buffer, strlen(buffer), 0);
         if (strncmp(buffer, "exit", 4) == 0) {
-            printf("Close connection...\n");
+            printf("Closing connection...\n");
             close(client);
             exit(0);
         }
@@ -40,7 +39,7 @@ void executeQuery(const char *query) {
     MYSQL *conn = mysql_init(NULL);
 
     if (!mysql_real_connect(conn, SERVER, USER, PASSWORD, DATABASE, 0, NULL, 0)) {
-        fprintf(stderr, "Connection fail: %s\n", mysql_error(conn));
+        fprintf(stderr, "Connection failed: %s\n", mysql_error(conn));
         exit(1);
     }
 
@@ -63,10 +62,10 @@ void handleClient(int client_socket) {
 }
 
 void setup() {
-    // Crear socket
+    // Create socket
     server = socket(AF_INET, SOCK_STREAM, 0);
 
-    // Habilitar la opción SO_REUSEADDR para reutilizar la dirección
+    // Enable the SO_REUSEADDR option to reuse the address
     int opt = 1;
     if (setsockopt(server, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
         perror("setsockopt error");
@@ -74,12 +73,12 @@ void setup() {
         exit(EXIT_FAILURE);
     }
 
-    // Configurar la dirección del servidor
+    // Configure server address
     server_addr.sin_family = AF_INET;
     server_addr.sin_addr.s_addr = INADDR_ANY;
     server_addr.sin_port = htons(PORT);
 
-    // Enlazar el socket
+    // Bind the socket
     if (bind(server, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
         perror("Bind error");
         close(server);
@@ -90,28 +89,28 @@ void setup() {
 int main() {
     setup();
 
-    // Escuchar conexiones
+    // Listen for connections
     if (listen(server, 1) < 0) {
         perror("Listen error");
         close(server);
         exit(EXIT_FAILURE);
     }
 
-    printf("Server open in port %d...\n", PORT);
+    printf("Server open on port %d...\n", PORT);
     client = accept(server, (struct sockaddr *)&client_addr, &addr_size);	
     if (client < 0) {
-        perror("Connection requested fail");
+        perror("Connection request failed");
         close(server);
         exit(EXIT_FAILURE);
     } else {
         printf("Client descriptor: %d\n", client);
-        printf("Connection success with  %s\n", inet_ntoa(client_addr.sin_addr));
+        printf("Connection successful with %s\n", inet_ntoa(client_addr.sin_addr));
     }
 
     pthread_t send_thread;
     pthread_create(&send_thread, NULL, send_messages, NULL);
 
-    // Bucle de recepción de mensajes del cliente
+    // Loop to receive messages from the client
     while (1) {
         memset(buffer, 0, BUFFER_SIZE);
         int bytes_read = read(client, buffer, BUFFER_SIZE);
@@ -123,15 +122,14 @@ int main() {
 
         printf("%s\n", buffer);
         if (strncmp(buffer, "exit", 4) == 0) {
-            printf("Connection close by client.\n");
+            printf("Connection closed by client.\n");
             break;
         }
     }
 
-    // Cerrar conexiones
+    // Close connections
     close(client);
     close(server);
 
     return 0;
 }
-

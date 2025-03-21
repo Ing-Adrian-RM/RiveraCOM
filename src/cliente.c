@@ -5,22 +5,22 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 
-#define PUERTO 1234
+#define PORT 1234
 #define BUFFER_SIZE 1024
 
-int cliente; // Variable global para el hilo
+int client_socket; // Global variable for the thread
 
-// Hilo para recibir mensajes del servidor
-void *recibir_mensajes(void *arg) {
+// Thread to receive messages from the server
+void *receive_messages(void *arg) {
     char buffer[BUFFER_SIZE];
 
     while (1) {
         memset(buffer, 0, BUFFER_SIZE);
-        int bytes_leidos = read(cliente, buffer, BUFFER_SIZE);
+        int bytes_read = read(client_socket, buffer, BUFFER_SIZE);
 
-        if (bytes_leidos <= 0) {
-            printf("Servidor desconectado.\n");
-            close(cliente);
+        if (bytes_read <= 0) {
+            printf("Server disconnected\n");
+            close(client_socket);
             exit(0);
         }
 
@@ -30,54 +30,53 @@ void *recibir_mensajes(void *arg) {
 }
 
 int main() {
-    struct sockaddr_in servidor_dir;
+    struct sockaddr_in server_address;
     char buffer[BUFFER_SIZE];
 
-    // Crear socket
-    cliente = socket(AF_INET, SOCK_STREAM, 0);
-    if (cliente == -1) {
-        perror("Error al crear el socket");
+    // Create socket
+    client_socket = socket(AF_INET, SOCK_STREAM, 0);
+    if (client_socket == -1) {
+        perror("Error creating socket");
         exit(EXIT_FAILURE);
     }
 
-    // Configurar la dirección del servidor
-    servidor_dir.sin_family = AF_INET;
-    servidor_dir.sin_port = htons(PUERTO);
+    // Configure the server address
+    server_address.sin_family = AF_INET;
+    server_address.sin_port = htons(PORT);
     
-    // Reemplazar con la IP del servidor
-    if (inet_pton(AF_INET, "192.168.1.105", &servidor_dir.sin_addr) <= 0) {
-        perror("Dirección inválida o no soportada");
-        close(cliente);
+    // Replace with the server's IP address
+    if (inet_pton(AF_INET, "192.168.1.105", &server_address.sin_addr) <= 0) {
+        perror("Invalid or unsupported address");
+        close(client_socket);
         exit(EXIT_FAILURE);
     }
 
-    // Conectar al servidor
-    if (connect(cliente, (struct sockaddr *)&servidor_dir, sizeof(servidor_dir)) < 0) {
-        perror("Error en la conexión");
-        close(cliente);
+    // Connect to the server
+    if (connect(client_socket, (struct sockaddr *)&server_address, sizeof(server_address)) < 0) {
+        perror("Connection error");
+        close(client_socket);
         exit(EXIT_FAILURE);
     }
 
-    printf("Conectado al servidor. Escribe 'salir' para terminar.\n");
+    printf("Connected to the server. Type 'exit' to terminate.\n");
 
-    // Crear un hilo para recibir mensajes del servidor
-    pthread_t hilo_recepcion;
-    pthread_create(&hilo_recepcion, NULL, recibir_mensajes, NULL);
+    // Create a thread to receive messages from the server
+    pthread_t reception_thread;
+    pthread_create(&reception_thread, NULL, receive_messages, NULL);
 
-    // Bucle para enviar mensajes
+    // Loop to send messages
     while (1) {
         fgets(buffer, BUFFER_SIZE, stdin);
-        buffer[strcspn(buffer, "\n")] = 0; // Eliminar salto de línea
+        buffer[strcspn(buffer, "\n")] = 0; // Remove newline character
 
-        send(cliente, buffer, strlen(buffer), 0);
+        send(client_socket, buffer, strlen(buffer), 0);
 
-        if (strncmp(buffer, "salir", 5) == 0) {
-            printf("Cerrando conexión...\n");
-            close(cliente);
+        if (strncmp(buffer, "exit", 4) == 0) {
+            printf("Closing connection...\n");
+            close(client_socket);
             exit(0);
         }
     }
 
     return 0;
 }
-
