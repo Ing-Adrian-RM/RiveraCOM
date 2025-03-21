@@ -16,13 +16,13 @@ WINDOW *chat_win, *input_win;
 // Thread to receive messages from the server
 void *receive_messages() {
     char buffer[BUFFER_SIZE];
+    int line = 1; // Start at the first line inside the chat window
 
     while (1) {
         memset(buffer, 0, BUFFER_SIZE);
         int bytes_read = read(client_socket, buffer, BUFFER_SIZE);
 
         if (bytes_read <= 0) {
-            //printf("Server disconnected\n");
             wprintw(chat_win, "Server disconnected\n");
             wrefresh(chat_win);
             close(client_socket);
@@ -30,9 +30,18 @@ void *receive_messages() {
             exit(0);
         }
 
-        //printf("%s\n", buffer);
-        wprintw(chat_win, "%s\n", buffer);
+        // Print the message at the current line
+        mvwprintw(chat_win, line, 1, "Server: %s", buffer);
         wrefresh(chat_win);
+
+        // Move to the next line
+        line++;
+
+        // If the window is full, scroll up
+        if (line >= LINES - 4) { // Adjust for borders and input window
+            scroll(chat_win);
+            line = LINES - 5; // Keep the last line for new messages
+        }
     }
     return NULL;
 }
@@ -48,10 +57,10 @@ int main() {
     curs_set(1);
 
     // Create windows for chat and input
-    int height = LINES - 3;
+    int height = LINES - 4;
     int width = COLS;
     chat_win = newwin(height, width, 0, 0);
-    input_win = newwin(3, width, height, 0);
+    input_win = newwin(4, width, height, 0);
 
     // Draw borders
     box(chat_win, 0, 0);
@@ -95,6 +104,8 @@ int main() {
         werase(input_win);
         box(input_win, 0, 0);
         //fgets(buffer, BUFFER_SIZE, stdin);
+        mvwprintw(input_win, 1, 1, "Message: ");
+        wrefresh(input_win);
         wgetnstr(input_win, buffer, BUFFER_SIZE);
         buffer[strcspn(buffer, "\n")] = 0; // Remove newline character
 
