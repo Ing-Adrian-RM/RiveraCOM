@@ -101,7 +101,7 @@ void *handleClient(void *arg) {
             snprintf(welcome_message, sizeof(welcome_message), "Welcome back, %s!\n", row[0]);
             strncpy(name, (const char *)row[0], sizeof(name) - 1);
             name[sizeof(name) - 1] = '\0';
-            printf("%s Connected, IP: %s\n", name,ip);
+            printf("%s Connected, IP: %s\n", name, ip);
             send(client_socket, welcome_message, strlen(welcome_message), 0);
             mysql_free_result(res);
         }
@@ -114,7 +114,7 @@ void *handleClient(void *arg) {
             bytesReceived = read(client_socket, name, sizeof(name));
         }
         name[bytesReceived] = '\0';
-    
+
         // Remove newline character if present
         name[strcspn(name, "\n")] = 0;
 
@@ -122,14 +122,14 @@ void *handleClient(void *arg) {
 
         char success_message[BUFFER_SIZE + 100]; // Increase buffer size to handle long names
         snprintf(success_message, sizeof(success_message), "Registration successful! Welcome, %.900s!\n", name);
-        printf("%s Connected, IP: %s\n", name,ip);
+        printf("%s Connected, IP: %s\n", name, ip);
         send(client_socket, success_message, strlen(success_message), 0);
     }
 
-    // Handle further communication with the client
+    // Chatbot interaction loop
     while (1) {
         memset(buffer, 0, BUFFER_SIZE);
-        int bytes_read = read(client, buffer, BUFFER_SIZE);
+        int bytes_read = read(client_socket, buffer, BUFFER_SIZE);
 
         if (bytes_read <= 0) {
             printf("Client %s disconnected.\n", name);
@@ -137,9 +137,11 @@ void *handleClient(void *arg) {
             break;
         }
 
+        buffer[bytes_read] = '\0'; // Null-terminate the received message
         printf("%s: %s\n", name, buffer);
+
         if (strncmp(buffer, "exit", 4) == 0) {
-            printf("%s has disconnected.\n",name);
+            printf("%s has disconnected.\n", name);
             close(client_socket);
             break;
         }
@@ -147,31 +149,22 @@ void *handleClient(void *arg) {
         // Simple chatbot responses
         char response[BUFFER_SIZE];
         if (strstr(buffer, "hello") || strstr(buffer, "hi")) {
-            snprintf(response, sizeof(response), "Hello, %.900s! How can I assist you today?\n", name);
+            snprintf(response, sizeof(response), "Hello, %s! How can I assist you today?\n", name);
         } else if (strstr(buffer, "help")) {
-            snprintf(response, sizeof(response), "Sure, %.900s! You can ask me about your account, balance, or other services.\n", name);
+            snprintf(response, sizeof(response), "Sure, %s! You can ask me about your account, balance, or other services.\n", name);
         } else if (strstr(buffer, "bye")) {
-            snprintf(response, sizeof(response), "Goodbye, %.900s! Have a great day!\n", name);
-            // Center the response message
-            int terminal_width = 80; // Adjust this based on your terminal width
-            int response_length = strlen(response);
-            int padding = (terminal_width - response_length) / 2;
-            if (padding > 0) {
-                char centered_response[BUFFER_SIZE];
-                snprintf(centered_response, sizeof(centered_response), "%*s%.900s", padding, "", response);
-                send(client_socket, centered_response, strlen(centered_response), 0);
-            } else {
-                send(client_socket, response, strlen(response), 0);
-            }
+            snprintf(response, sizeof(response), "Goodbye, %s! Have a great day!\n", name);
+            send(client_socket, response, strlen(response), 0);
             printf("%s has disconnected.\n", name);
             close(client_socket);
             break;
         } else {
-            snprintf(response, sizeof(response), "I'm sorry, %.900s. I didn't understand that. Can you rephrase?\n", name);
+            snprintf(response, sizeof(response), "I'm sorry, %s. I didn't understand that. Can you rephrase?\n", name);
         }
 
         send(client_socket, response, strlen(response), 0);
     }
+
     free(arg);
 }
 
