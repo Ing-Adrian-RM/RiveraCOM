@@ -20,17 +20,26 @@ pthread_mutex_t lock;
 // Thread to receive messages from the server
 void *receive_messages() {
     char buffer[BUFFER_SIZE];
-    line = 1; // Start at the first line inside the chat window
 
     while (1) {
         memset(buffer, 0, BUFFER_SIZE);
         int bytes_read = read(client_socket, buffer, BUFFER_SIZE);
 
         if (bytes_read <= 0) {
-            wprintw(chat_win, "Server disconnected\n");
+            werase(chat_win);
+            box(chat_win, 0, 0);
             wrefresh(chat_win);
+            line = 1;
+            mvwprintw(chat_win, line, 1, "Server disconnected, press enter to close\n");
+            box(chat_win, 0, 0);
+            wrefresh(chat_win);
+            wmove(input_win, sizeof("Message: "), 1);
+            wrefresh(input_win);
+            wgetnstr(input_win, buffer, 0);
             close(client_socket);
             endwin();
+            free(temp);
+            pthread_mutex_destroy(&lock);
             exit(0);
         }
 
@@ -78,31 +87,6 @@ void setup() {
     struct sockaddr_in server_address;
     pthread_mutex_init(&lock, NULL);
 
-    // Initialize ncurses
-    initscr();
-    cbreak();
-    curs_set(1);
-    max_width = COLS - 2;
-    BUFFER_SEND_SIZE = COLS * 2;
-    temp = malloc((max_width + 1) * sizeof(char));
-    if (temp == NULL) {
-        perror("Memory allocation failed");
-        exit(EXIT_FAILURE);
-    }
-
-    // Create windows for chat and input
-    int height = LINES - 4;
-    int width = COLS;
-    chat_win = newwin(height, width, 0, 0);
-    input_win = newwin(4, width, height, 0);
-    scrollok(chat_win, TRUE);
-
-    // Draw borders
-    box(chat_win, 0, 0);
-    box(input_win, 0, 0);
-    wrefresh(chat_win);
-    wrefresh(input_win);
-
     // Create socket
     client_socket = socket(AF_INET, SOCK_STREAM, 0);
     if (client_socket == -1) {
@@ -128,7 +112,28 @@ void setup() {
         exit(EXIT_FAILURE);
     }
 
-    mvwprintw(chat_win, line, 1, "Connected to the server. Type 'exit' to terminate.\n");
+    // Initialize ncurses
+    initscr();
+    cbreak();
+    curs_set(1);
+    max_width = COLS - 2;
+    BUFFER_SEND_SIZE = COLS * 2;
+    temp = malloc((max_width + 1) * sizeof(char));
+
+    // Create windows for chat and input
+    int height = LINES - 4;
+    int width = COLS;
+    chat_win = newwin(height, width, 0, 0);
+    input_win = newwin(4, width, height, 0);
+    scrollok(chat_win, TRUE);
+
+    // Draw borders
+    box(chat_win, 0, 0);
+    box(input_win, 0, 0);
+    wrefresh(chat_win);
+    wrefresh(input_win);
+
+    mvwprintw(chat_win, line, 1, "Connected to the server. Type 'close' to terminate.\n");
     wrefresh(chat_win);
     wmove(input_win, 1, sizeof("Message: "));
     wrefresh(input_win);
@@ -194,7 +199,7 @@ int main() {
         wmove(input_win, sizeof("Message: "), 1);
         wrefresh(input_win);
         
-        if (strncmp(buffer, "exit", 4) == 0) {
+        if (strncmp(buffer, "close", 4) == 0) {
             wprintw(chat_win, "Closing connection...\n");
             wrefresh(chat_win);
             close(client_socket);
