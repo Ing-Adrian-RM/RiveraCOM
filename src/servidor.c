@@ -77,11 +77,11 @@ CLIENT_LIST_PTR removeClientConn(CLIENT_LIST_PTR c_list, CLIENT client) {
             if (prev == NULL) {
                 CLIENT_LIST_PTR temp = current;
                 c_list = current->next;
-                close(temp->client.client_socket);
+                close(temp->client.socket);
                 free(temp);
             } else {
                 prev->next = current->next;
-                close(current->client.client_socket);
+                close(current->client.socket);
                 free(current);
             }
             return c_list;
@@ -99,7 +99,7 @@ CLIENT_LIST_PTR removeClientConn(CLIENT_LIST_PTR c_list, CLIENT client) {
 void disconnectAllClients(CLIENT_LIST_PTR c_list) {
     CLIENT_LIST_PTR current = c_list;
     while (current != NULL) {
-        close(current->client.client_socket);
+        close(current->client.socket);
         CLIENT_LIST_PTR temp = current;
         current = current->next;
         free(temp);
@@ -150,7 +150,7 @@ int printInChatWin(WINDOW *win, void *arg) {
         memset(temp, ' ', sizeof(max_width + 1));
         if (lines_writed == 1)
         {
-            strncpy(temp, message, max_width - 4);
+            strncpy(temp, message, max_width - 10); //No puede ser un valor fijo
             temp[max_width + 1] = '\0';
             mvwprintw(chat_win, line, 1, "%s", temp);
             message += (max_width - 4);
@@ -219,17 +219,17 @@ void *handleClient(void *arg) {
         memset(buffer, '\0', BUFFER_SIZE);
         snprintf(buffer, sizeof(buffer) - 1, "Welcome back, %.900s!", client.name);
         buffer[sizeof(buffer) - 1] = '\0';
-        send(client.client_socket, buffer, strlen(buffer), 0);
+        send(client.socket, buffer, strlen(buffer), 0);
         memset(buffer, '\0', BUFFER_SIZE);
         snprintf(buffer, BUFFER_SIZE, "%.900s Connected, IP: %.100s\n", client.name, client.ip);
         use_window(chat_win, printInChatWin, buffer);
     }
     else {
-        send(client.client_socket, "You are not registered. Please enter a unique username:\n", 56, 0);
+        send(client.socket, "You are not registered. Please enter a unique username:\n", 56, 0);
         memset(buffer, '\0', BUFFER_SIZE);
         bytesReceived = 0;
         while (bytesReceived == 0) {
-            bytesReceived = read(client.client_socket, buffer, sizeof(buffer));
+            bytesReceived = read(client.socket, buffer, sizeof(buffer));
         }
         strncpy(client.name, buffer, sizeof(buffer) - 1);
         client.name[sizeof(client.name) - 1] = '\0';
@@ -239,30 +239,32 @@ void *handleClient(void *arg) {
         use_window(chat_win, printInChatWin, buffer);
         memset(buffer, '\0', BUFFER_SIZE);
         snprintf(buffer, sizeof(buffer), "Registration successful! Welcome, %.900s!\n", client.name);
-        send(client.client_socket, buffer, strlen(buffer), 0);
+        send(client.socket, buffer, strlen(buffer), 0);
     }
 
     // Handle further communication with the client
     while (1)
-    {
+    {   
+        char temp_buffer[2049];
         memset(buffer, '\0', BUFFER_SIZE);
-        bytesReceived = read(client.client_socket, buffer, BUFFER_SIZE);
+        bytesReceived = read(client.socket, buffer, BUFFER_SIZE);
+        snprintf(temp_buffer, sizeof(temp_buffer), "%s: %s", client.name,buffer);
 
         if (bytesReceived <= 0) {
             snprintf(buffer, sizeof(buffer) - 1, "Client %.900s disconnected.\n", client.name);
             buffer[sizeof(buffer) - 1] = '\0';
-            use_window(chat_win, printInChatWin, buffer);
+            use_window(chat_win, printInChatWin, temp_buffer);
             removeClientConn(c_list, client);
             break;
         }
 
         if (strncmp(buffer, "close", 5) == 0) {
             snprintf(buffer, sizeof(buffer), "%.900s has disconnected.\n", client.name);
-            use_window(chat_win, printInChatWin, buffer);
+            use_window(chat_win, printInChatWin, temp_buffer);
             removeClientConn(c_list, client);
             break;
         }
-        use_window(chat_win, printInChatWin, buffer);
+        use_window(chat_win, printInChatWin, temp_buffer);
     }
 
     removeClientConn(c_list, client);
@@ -283,19 +285,20 @@ void *send_messages(void *arg)
 
     while (1)
     {
+        char temp_buffer[2049];
         use_window(input_win, clearInputWin, 0);
         memset(buffer, '\0', BUFFER_SEND_SIZE);
         wgetnstr(input_win, buffer, BUFFER_SEND_SIZE - sizeof("Message: "));
+        snprintf(temp_buffer, sizeof(temp_buffer), "Server: %s",buffer);
 
         if (strncmp(buffer, "close", 5) == 0) shutdownServer(c_list);
         else if (strncmp(buffer, "clear", 5) == 0) use_window(chat_win, clearChatWin, 0);
-        else use_window(chat_win, printInChatWin, buffer);
+        else use_window(chat_win, printInChatWin, temp_buffer);
 
-        if (receiver_name == "Broadcast") {
+        if (strncmp(receiver_name, "Broadcast", 9) == 0) {
             pthread_mutex_lock(&lock);
             for (CLIENT_LIST_PTR ptr = c_list; ptr != NULL; ptr = ptr->next) {
-                //snprintf(buffer, sizeof(buffer), "@%s@%s@%s", sender_name, receiver_name, buffer);
-                send(ptr->client.client_socket, buffer, strlen(buffer), 0);
+                send(ptr->client.socket, buffer, strlen(buffer), 0);
             }
             pthread_mutex_unlock(&lock);
         }
@@ -376,11 +379,13 @@ int main()
     {
         client = accept(server, (struct sockaddr *)&client_addr, &addr_size);
         CLIENT client_i;
-        client_i.client_socket = client;
+        client_i.socket = client;
         inet_ntop(AF_INET, &client_addr.sin_addr, client_i.ip, INET_ADDRSTRLEN);
         client_i.name[0] = '\0';
         if (client >= 0) {
-            addClientConn(c_list, client_i);
+            pthread_mutex_lock(&lock);
+            c_list = addClientConn(c_list, client_i);
+            pthread_mutex_unlock(&lock);
             pthread_t client_thread;
             CLIENT_PTR client_socket = (CLIENT_PTR)malloc(sizeof(CLIENT));
             *client_socket = client_i;

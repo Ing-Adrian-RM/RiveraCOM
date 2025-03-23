@@ -29,13 +29,13 @@
 
 //Variables ///////////////////////////////////////////////////////////////////
 
-char buffer[BUFFER_SIZE], receiver_name[BUFFER_SIZE], sender_name[BUFFER_SIZE], query[512], *temp = NULL;
+char buffer[BUFFER_SIZE], temp_buffer[2049], receiver_name[BUFFER_SIZE], sender_name[BUFFER_SIZE], query[512], *temp = NULL;
 int client, server, line=1, max_width, BUFFER_SEND_SIZE, connected_clients;
 
 //Structs /////////////////////////////////////////////////////////////////////
 
 typedef struct client_information{
-    int client_socket;
+    int socket;
     char ip[INET_ADDRSTRLEN];
     char name[BUFFER_SIZE];
 }CLIENT, *CLIENT_PTR;
