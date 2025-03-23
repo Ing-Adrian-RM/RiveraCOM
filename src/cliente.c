@@ -1,29 +1,20 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <arpa/inet.h>
-#include <pthread.h>
-#include <ncurses.h>
+///////////////////////////////////////////////////////////////////////////////
+//
+// Client Module
+//
+///////////////////////////////////////////////////////////////////////////////
 
-#define PORT 1234
-#define BUFFER_SIZE 1024
-#define SERVER "192.168.1.105"
+#include "server_elements.h"
 
-int client_socket, line=1; // Global variable for the thread
-int max_width;
-int BUFFER_SEND_SIZE;
-char *temp = NULL;
-WINDOW *chat_win, *input_win;
-pthread_mutex_t lock;
-
-// Thread to receive messages from the server
+///////////////////////////////////////////////////////////////////////////////
+// *receive_messages-> 
+///////////////////////////////////////////////////////////////////////////////
 void *receive_messages() {
     char buffer[BUFFER_SIZE];
 
     while (1) {
         memset(buffer, 0, BUFFER_SIZE);
-        int bytes_read = read(client_socket, buffer, BUFFER_SIZE);
+        int bytes_read = read(client, buffer, BUFFER_SIZE);
 
         if (bytes_read <= 0) {
             werase(chat_win);
@@ -36,7 +27,7 @@ void *receive_messages() {
             wmove(input_win, sizeof("Message: "), 1);
             wrefresh(input_win);
             wgetnstr(input_win, buffer, 0);
-            close(client_socket);
+            close(client);
             endwin();
             free(temp);
             pthread_mutex_destroy(&lock);
@@ -83,13 +74,16 @@ void *receive_messages() {
     return NULL;
 }
 
+///////////////////////////////////////////////////////////////////////////////
+// setup-> 
+///////////////////////////////////////////////////////////////////////////////
 void setup() {
     struct sockaddr_in server_address;
     pthread_mutex_init(&lock, NULL);
 
     // Create socket
-    client_socket = socket(AF_INET, SOCK_STREAM, 0);
-    if (client_socket == -1) {
+    client = socket(AF_INET, SOCK_STREAM, 0);
+    if (client == -1) {
         perror("Error creating socket");
         exit(EXIT_FAILURE);
     }
@@ -101,14 +95,14 @@ void setup() {
     // Replace with the server's IP address
     if (inet_pton(AF_INET, SERVER, &server_address.sin_addr) <= 0) {
         perror("Invalid or unsupported address");
-        close(client_socket);
+        close(client);
         exit(EXIT_FAILURE);
     }
 
     // Connect to the server
-    if (connect(client_socket, (struct sockaddr *)&server_address, sizeof(server_address)) < 0) {
+    if (connect(client, (struct sockaddr *)&server_address, sizeof(server_address)) < 0) {
         perror("Connection error");
-        close(client_socket);
+        close(client);
         exit(EXIT_FAILURE);
     }
 
@@ -144,6 +138,7 @@ void setup() {
     // Create a thread to receive messages from the server
     pthread_t reception_thread;
     pthread_create(&reception_thread, NULL, receive_messages, NULL);
+    pthread_detach(reception_thread);
 }
 
 int main() {
@@ -160,7 +155,7 @@ int main() {
         wgetnstr(input_win, buffer, BUFFER_SEND_SIZE - 9);
         buffer[strcspn(buffer, "\n")] = 0; // Remove newline character
         
-        send(client_socket, buffer, strlen(buffer), 0);
+        send(client, buffer, strlen(buffer), 0);
         
         char *message = buffer;
         int lines_writed = 1;
@@ -199,10 +194,8 @@ int main() {
         wmove(input_win, sizeof("Message: "), 1);
         wrefresh(input_win);
         
-        if (strncmp(buffer, "close", 4) == 0) {
-            wprintw(chat_win, "Closing connection...\n");
-            wrefresh(chat_win);
-            close(client_socket);
+        if (strncmp(buffer, "close", 5) == 0) {
+            close(client);
             endwin(); // Close ncurses
             exit(0);
         } else if (strncmp(buffer, "clear", 5) == 0) {
@@ -213,8 +206,10 @@ int main() {
         }   
     }
 
+    
     free(temp);
     pthread_mutex_destroy(&lock);
-    endwin(); // Close ncurses
+    endwin();
+    close(client);
     return 0;
 }
