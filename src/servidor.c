@@ -102,7 +102,6 @@ void disconnectAllClients(CLIENT_LIST_PTR c_list) {
         close(current->client.socket);
         CLIENT_LIST_PTR temp = current;
         current = current->next;
-        free(temp);
     }
 }
 
