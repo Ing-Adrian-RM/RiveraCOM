@@ -204,6 +204,7 @@ int clearInputWin(WINDOW *win, void *arg) {
 ///////////////////////////////////////////////////////////////////////////////
 ssize_t sendGif(char *file_path, CLIENT client) {
     char buffer[BUFFER_SIZE];
+    memset(buffer, '\0', BUFFER_SIZE);
     size_t bytes_read, total_bytes_sent = 0;
     FILE *file = fopen(file_path, "rb");
 
@@ -234,6 +235,7 @@ ssize_t sendGif(char *file_path, CLIENT client) {
 ssize_t receiveGif(char *file_path, CLIENT client) {
     FILE *file = fopen(file_path, "wb");
     char buffer[BUFFER_SIZE];
+    memset(buffer, '\0', BUFFER_SIZE);
     ssize_t bytes_received, total_bytes_received = 0;
 
     if (!file) {
@@ -263,6 +265,7 @@ ssize_t receiveGif(char *file_path, CLIENT client) {
 void *handleClient(void *arg) {
 
     char buffer[BUFFER_SIZE];
+    char temp_buffer[BUFFER_SIZE*3];
     int bytesReceived;
     char name[BUFFER_SIZE];
     CLIENT client = *(CLIENT *)arg;
@@ -301,8 +304,9 @@ void *handleClient(void *arg) {
     // Handle further communication with the client
     while (1)
     {   
-        char temp_buffer[2049];
+        memset(temp_buffer, '\0', BUFFER_SIZE*3);
         memset(buffer, '\0', BUFFER_SIZE);
+        
         bytesReceived = read(client.socket, buffer, BUFFER_SIZE);
         snprintf(temp_buffer, sizeof(temp_buffer), "%s: %s", client.name,buffer);
 
@@ -360,6 +364,9 @@ void send_messages(SND_RCV sr, CLIENT_LIST_PTR ptr, char *buffer, char *temp_buf
 ///////////////////////////////////////////////////////////////////////////////
 void *inputWindowManagement(void *arg)
 {
+    char buffer[BUFFER_SEND_SIZE];
+    char temp_buffer[BUFFER_SIZE*2];
+
     SND_RCV sr;
     strncpy(sr.sender_name, "Server", BUFFER_SIZE);
     sr.sender_name[sizeof(sr.sender_name - 1)] = '\0';
@@ -367,9 +374,9 @@ void *inputWindowManagement(void *arg)
     sr.receiver_name[sizeof(sr.receiver_name) - 1] = '\0';
 
     while (1)
-    {
-        char buffer[BUFFER_SEND_SIZE];
-        char temp_buffer[BUFFER_SIZE*2];
+    {    
+        memset(buffer, '\0', BUFFER_SEND_SIZE);
+        memset(temp_buffer, '\0', BUFFER_SIZE*2);
         use_window(input_win, clearInputWin, 0);
         wgetnstr(input_win, buffer, BUFFER_SEND_SIZE - sizeof("Message: "));
         snprintf(temp_buffer, sizeof(temp_buffer), "%s: %s", sr.sender_name, buffer);
@@ -444,6 +451,7 @@ void setup()
     wrefresh(chat_win);
     wrefresh(input_win);
 
+    memset(buffer, '\0', BUFFER_SIZE);
     snprintf(buffer, sizeof(buffer), "Server initalized. Type 'close' to terminate.");
     use_window(chat_win, printInChatWin, buffer);
 
@@ -459,9 +467,10 @@ int main()
 
     if (listen(server, 1) < 0)
     {   
-        snprintf(buffer, sizeof(buffer), "Server initalized. Type 'close' to terminate.");
+        snprintf(buffer, sizeof(buffer), "Server initalized error. Press enter to close.");
         use_window(chat_win, printInChatWin, buffer);
-        perror("Listen error");
+        use_window(input_win, clearInputWin, 0);
+        wgetnstr(input_win, buffer, BUFFER_SEND_SIZE - sizeof("Message: "));
         close(server);
         exit(EXIT_FAILURE);
     }

@@ -81,6 +81,7 @@ int clearInputWin(WINDOW *win, void *arg) {
 ///////////////////////////////////////////////////////////////////////////////
 ssize_t sendGif(char *file_path, CLIENT client) {
     char buffer[BUFFER_SIZE];
+    memset(buffer, '\0', BUFFER_SIZE);
     size_t bytes_read, total_bytes_sent = 0;
     FILE *file = fopen(file_path, "rb");
 
@@ -111,6 +112,7 @@ ssize_t sendGif(char *file_path, CLIENT client) {
 ssize_t receiveGif(char *file_path, CLIENT client) {
     FILE *file = fopen(file_path, "wb");
     char buffer[BUFFER_SIZE];
+    memset(buffer, '\0', BUFFER_SIZE);
     ssize_t bytes_received, total_bytes_received = 0;
 
     if (!file) {
@@ -140,6 +142,7 @@ ssize_t receiveGif(char *file_path, CLIENT client) {
 void *receive_messages() {
     while (1) {
         char buffer[BUFFER_SIZE];
+        memset(buffer, '\0', BUFFER_SIZE);
         int bytes_read = read(client, buffer, BUFFER_SIZE);
 
         if (bytes_read <= 0) {
@@ -219,6 +222,8 @@ void setup() {
     wrefresh(chat_win);
     wrefresh(input_win);
 
+    char buffer[BUFFER_SIZE];
+    memset(buffer, '\0', BUFFER_SIZE);
     snprintf(buffer, sizeof(buffer), "Connected to the server. Type 'close' to terminate.");
     use_window(chat_win, printInChatWin, buffer);
 
@@ -231,6 +236,9 @@ void setup() {
 int main() {
     setup();
 
+    char buffer[BUFFER_SEND_SIZE];
+    char temp_buffer[BUFFER_SIZE];
+
     SND_RCV sr;
     strncpy(sr.sender_name, "Server", BUFFER_SIZE);
     sr.sender_name[sizeof(sr.sender_name - 1)] = '\0';
@@ -239,8 +247,8 @@ int main() {
 
     // Loop to send messages
     while (1) {
-        char buffer[BUFFER_SEND_SIZE];
-        char temp_buffer[BUFFER_SIZE];
+        memset(buffer, '\0', BUFFER_SEND_SIZE);
+        memset(temp_buffer, '\0', BUFFER_SIZE);
         use_window(input_win, clearInputWin, 0);
         wgetnstr(input_win, buffer, BUFFER_SEND_SIZE - sizeof("Message: "));
         snprintf(temp_buffer, sizeof(temp_buffer), "Me: %s", buffer);
