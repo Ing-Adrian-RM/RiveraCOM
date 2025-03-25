@@ -157,11 +157,12 @@ void *receive_messages() {
         }
 
         if (strncmp(buffer, "gif", 3) == 0){
+            use_window(chat_win, printInChatWin, buffer);
             char file_path[BUFFER_SIZE];
             snprintf(file_path, sizeof(file_path), "./media/gifs/%s.gif", (buffer + 4));                 
             size_t bytes_received = receiveGif(file_path, client_i);
         }
-        use_window(chat_win, printInChatWin, temp_buffer);
+        use_window(chat_win, printInChatWin, buffer);
     }
     return NULL;
 }
@@ -282,7 +283,7 @@ int main() {
             }
         } else {
             use_window(chat_win, printInChatWin, temp_buffer);
-            send(client_i.socket, temp_buffer, strlen(temp_buffer), 0);
+            send(client_i.socket, buffer, strlen(buffer), 0);
         }
     }
 

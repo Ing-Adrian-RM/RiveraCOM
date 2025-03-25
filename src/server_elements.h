@@ -10,7 +10,7 @@
 
 #define PORT 1234
 #define BUFFER_SIZE 1024
-#define SERVER "192.168.1.105"
+#define SERVER "172.24.102.88"
 #define USER "RIVERA_USER"
 #define PASSWORD "8790"
 #define DATABASE "RIVERACOM_DB"
