@@ -132,7 +132,6 @@ void shutdownServer(CLIENT_LIST_PTR c_list) {
 // print_in_chatwin-> 
 ///////////////////////////////////////////////////////////////////////////////
 int printInChatWin(WINDOW *win, void *arg) {
-
     char *message = (char *)arg;
     int lines_writed = 1;
     while (*message)
@@ -162,7 +161,6 @@ int printInChatWin(WINDOW *win, void *arg) {
             mvwprintw(chat_win, line, 1, "%s", temp);
             message += (max_width);
         }
-
         box(chat_win, 0, 0);
         wrefresh(chat_win);
         lines_writed++;
@@ -199,6 +197,64 @@ int clearInputWin(WINDOW *win, void *arg) {
     mvwprintw(input_win, 1, 0, "Message: ");
     wrefresh(input_win);
     return OK;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// sendGif-> Sends a .gif file to a client
+///////////////////////////////////////////////////////////////////////////////
+ssize_t sendGif(char *file_path, CLIENT client) {
+    char buffer[BUFFER_SIZE];
+    size_t bytes_read, total_bytes_sent = 0;
+    FILE *file = fopen(file_path, "rb");
+
+    if (!file) {
+        snprintf(buffer, sizeof(buffer), "Error opening file");
+        use_window(chat_win, printInChatWin, buffer);
+        return total_bytes_sent;
+    }
+
+    while ((bytes_read = fread(buffer, 1, sizeof(buffer), file)) > 0) {
+        ssize_t bytes_sent = send(client.socket, buffer, bytes_read, 0);
+        if (bytes_sent < 0) {
+            memset(buffer, '\0', BUFFER_SIZE);
+            snprintf(buffer, sizeof(buffer), "Error sending file");
+            use_window(chat_win, printInChatWin, buffer);
+            break;
+        }
+        total_bytes_sent += bytes_sent;
+    }
+
+    fclose(file);
+    return total_bytes_sent;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// receiveGif-> Receives a .gif file from a client
+///////////////////////////////////////////////////////////////////////////////
+ssize_t receiveGif(char *file_path, CLIENT client) {
+    FILE *file = fopen(file_path, "wb");
+    char buffer[BUFFER_SIZE];
+    ssize_t bytes_received, total_bytes_received = 0;
+
+    if (!file) {
+        snprintf(buffer, sizeof(buffer), "Error creating file");
+        use_window(chat_win, printInChatWin, buffer);
+        return total_bytes_received;
+    }    
+
+    while ((bytes_received = recv(client.socket, buffer, sizeof(buffer), 0)) > 0) {
+        fwrite(buffer, 1, bytes_received, file);
+        if (bytes_received < 0) {
+            memset(buffer, '\0', BUFFER_SIZE);
+            snprintf(buffer, sizeof(buffer), "Error receiving file");
+            use_window(chat_win, printInChatWin, buffer);
+            break;
+        }
+        total_bytes_received += bytes_received;
+    }
+
+    fclose(file);
+    return total_bytes_received;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -251,18 +307,16 @@ void *handleClient(void *arg) {
         snprintf(temp_buffer, sizeof(temp_buffer), "%s: %s", client.name,buffer);
 
         if (bytesReceived <= 0) {
-            snprintf(buffer, sizeof(buffer) - 1, "Client %.900s disconnected.\n", client.name);
-            buffer[sizeof(buffer) - 1] = '\0';
-            use_window(chat_win, printInChatWin, temp_buffer);
-            removeClientConn(c_list, client);
+            snprintf(buffer, BUFFER_SIZE, "%.900s disconnected", client.name);
+            use_window(chat_win, printInChatWin, buffer);
+            removeClientConn(c_list,client);
             break;
         }
 
-        if (strncmp(buffer, "close", 5) == 0) {
-            snprintf(buffer, sizeof(buffer), "%.900s has disconnected.\n", client.name);
-            use_window(chat_win, printInChatWin, temp_buffer);
-            removeClientConn(c_list, client);
-            break;
+        if (strncmp(buffer, "gif", 3) == 0){
+            char file_path[BUFFER_SIZE];
+            snprintf(file_path, sizeof(file_path), "./media/gifs/%s.gif", (buffer + 4));                 
+            size_t bytes_received = receiveGif(file_path, client);
         }
         use_window(chat_win, printInChatWin, temp_buffer);
     }
@@ -275,37 +329,76 @@ void *handleClient(void *arg) {
 ///////////////////////////////////////////////////////////////////////////////
 // *send_messages-> 
 ///////////////////////////////////////////////////////////////////////////////
-void *send_messages(void *arg)
+void send_messages(SND_RCV sr, CLIENT_LIST_PTR ptr, char *buffer, char *temp_buffer)
 {
-    char buffer[BUFFER_SEND_SIZE];
-    strncpy(sender_name, "Server", BUFFER_SIZE);
-    sender_name[sizeof("Server")] = '\0';
-    strncpy(receiver_name, "Broadcast", BUFFER_SIZE);
-    receiver_name[sizeof("Broadcast")] = '\0';
+    if (strncmp(buffer, "gif", 3) == 0) {
+        char file_path[BUFFER_SIZE];
+        snprintf(file_path, sizeof(file_path), "./media/gifs/%s.gif", buffer + 4);        
+        if (access(file_path, F_OK) == 0) {
+            size_t bytes_send = sendGif(file_path, ptr->client);
+            if (bytes_send > 0) {
+                memset(buffer, '\0', BUFFER_SEND_SIZE);
+                snprintf(buffer, BUFFER_SEND_SIZE, "%s sent. Total bytes sent: %zu", temp_buffer, bytes_send);
+                use_window(chat_win, printInChatWin, buffer);
+            } else {
+                memset(temp_buffer, '\0', BUFFER_SIZE);
+                snprintf(temp_buffer, BUFFER_SIZE, "Error: Failed to send gif.");
+                use_window(chat_win, printInChatWin, temp_buffer);
+            }
+        } else {
+            memset(temp_buffer, '\0', BUFFER_SIZE);
+            snprintf(temp_buffer, BUFFER_SIZE, "Error: Gif not found.");
+            use_window(chat_win, printInChatWin, temp_buffer);
+        }
+    } else {
+        use_window(chat_win, printInChatWin, temp_buffer);
+        send(ptr->client.socket, temp_buffer, strlen(temp_buffer), 0);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// *inputWindowManagement-> 
+///////////////////////////////////////////////////////////////////////////////
+void *inputWindowManagement(void *arg)
+{
+    SND_RCV sr;
+    strncpy(sr.sender_name, "Server", BUFFER_SIZE);
+    sr.sender_name[sizeof(sr.sender_name - 1)] = '\0';
+    strncpy(sr.receiver_name, "Broadcast", BUFFER_SIZE);
+    sr.receiver_name[sizeof(sr.receiver_name) - 1] = '\0';
 
     while (1)
     {
-        char temp_buffer[2049];
+        char buffer[BUFFER_SEND_SIZE];
+        char temp_buffer[BUFFER_SIZE*2];
         use_window(input_win, clearInputWin, 0);
-        memset(buffer, '\0', BUFFER_SEND_SIZE);
         wgetnstr(input_win, buffer, BUFFER_SEND_SIZE - sizeof("Message: "));
-        snprintf(temp_buffer, sizeof(temp_buffer), "Server: %s",buffer);
+        snprintf(temp_buffer, sizeof(temp_buffer), "%s: %s", sr.sender_name, buffer);
 
         if (strncmp(buffer, "close", 5) == 0) shutdownServer(c_list);
-        else if (strncmp(buffer, "clear", 5) == 0) use_window(chat_win, clearChatWin, 0);
-        else use_window(chat_win, printInChatWin, temp_buffer);
+        if (strncmp(buffer, "clear", 5) == 0) {use_window(chat_win, clearChatWin, 0); continue;}
 
-        if (strncmp(receiver_name, "Broadcast", 9) == 0) {
-            pthread_mutex_lock(&lock);
-            for (CLIENT_LIST_PTR ptr = c_list; ptr != NULL; ptr = ptr->next) {
-                send(ptr->client.socket, buffer, strlen(buffer), 0);
+        if (c_list == NULL){
+            memset(buffer, '\0', BUFFER_SEND_SIZE);
+            snprintf(buffer, sizeof(buffer), "Error: No clients connected.");
+            use_window(chat_win, printInChatWin, buffer);
+        } else {
+            if (strncmp(sr.receiver_name, "Broadcast", sizeof(sr.receiver_name - 1)) == 0) {
+                for (CLIENT_LIST_PTR ptr = c_list; ptr != NULL; ptr = ptr->next) {
+                    send_messages(sr, ptr, buffer, temp_buffer);
+                }
+            } else {
+                for (CLIENT_LIST_PTR ptr = c_list; ptr != NULL; ptr = ptr->next) {
+                    if (strncmp(ptr->client.name, receiver_name, strlen(receiver_name)) == 0) {
+                        send_messages(sr, ptr, buffer, temp_buffer);
+                        break;
+                    }
+                }
             }
-            pthread_mutex_unlock(&lock);
         }
     }
     return NULL;
 }
-
 
 ///////////////////////////////////////////////////////////////////////////////
 // setup-> 
@@ -357,7 +450,7 @@ void setup()
     use_window(chat_win, printInChatWin, buffer);
 
     pthread_t send_thread;
-    pthread_create(&send_thread, NULL, send_messages, NULL);
+    pthread_create(&send_thread, NULL, inputWindowManagement, NULL);
     pthread_detach(send_thread);
 }
 
@@ -378,7 +471,6 @@ int main()
     while (1)
     {
         client = accept(server, (struct sockaddr *)&client_addr, &addr_size);
-        CLIENT client_i;
         client_i.socket = client;
         inet_ntop(AF_INET, &client_addr.sin_addr, client_i.ip, INET_ADDRSTRLEN);
         client_i.name[0] = '\0';

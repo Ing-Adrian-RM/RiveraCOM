@@ -29,7 +29,7 @@
 
 //Variables ///////////////////////////////////////////////////////////////////
 
-char buffer[BUFFER_SIZE], temp_buffer[2049], receiver_name[BUFFER_SIZE], sender_name[BUFFER_SIZE], query[512], *temp = NULL;
+char buffer[BUFFER_SIZE], temp_buffer[BUFFER_SIZE], receiver_name[BUFFER_SIZE], sender_name[BUFFER_SIZE], query[512], *temp = NULL;
 int client, server, line=1, max_width, BUFFER_SEND_SIZE, connected_clients;
 
 //Structs /////////////////////////////////////////////////////////////////////
@@ -44,12 +44,18 @@ typedef struct connected_clients{
     CLIENT client;
     struct connected_clients *next;
 }CLIENT_LIST, *CLIENT_LIST_PTR;
+
+typedef struct sender_receiver{
+    char sender_name[BUFFER_SIZE];
+    char receiver_name[BUFFER_SIZE];
+}SND_RCV, *SND_RCV_PTR;
     
 //Global Vars /////////////////////////////////////////////////////////////////
 
 MYSQL *conn;
 MYSQL_RES *res;
 MYSQL_ROW row;
+CLIENT client_i;
 CLIENT_LIST_PTR c_list;
 WINDOW *chat_win, *input_win;
 pthread_mutex_t lock;
@@ -69,8 +75,11 @@ void shutdownServer(CLIENT_LIST_PTR c_list);
 int printInChatWin(WINDOW *win, void *arg);
 int clearChatWin(WINDOW *win, void *arg);
 int clearInputWin(WINDOW *win, void *arg);
+ssize_t sendGif(char *file_path, CLIENT client);
+ssize_t receiveGif(char *file_path, CLIENT client);
 void *handleClient(void *arg);
-void *send_messages(void *arg);
+void send_messages(SND_RCV sr, CLIENT_LIST_PTR ptr, char *buffer, char *temp_buffer);
+void *inputWindowManagement(void *arg);
 
 // Functions of client //
 void *receive_messages();
