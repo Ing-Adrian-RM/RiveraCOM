@@ -444,7 +444,6 @@ void setup()
     wrefresh(chat_win);
     wrefresh(input_win);
 
-    memset(buffer, '\0', BUFFER_SIZE);
     snprintf(buffer, sizeof(buffer), "Server initalized. Type 'close' to terminate.");
     use_window(chat_win, printInChatWin, buffer);
 

@@ -219,13 +219,8 @@ void setup() {
     wrefresh(chat_win);
     wrefresh(input_win);
 
-    mvwprintw(chat_win, line, 1, "Connected to the server. Type 'close' to terminate.\n");
-    wrefresh(chat_win);
-    wmove(input_win, 1, sizeof("Message: "));
-    wrefresh(input_win);
-    pthread_mutex_lock(&lock);
-    line++;
-    pthread_mutex_unlock(&lock);
+    snprintf(buffer, sizeof(buffer), "Connected to the server. Type 'close' to terminate.");
+    use_window(chat_win, printInChatWin, buffer);
 
     // Create a thread to receive messages from the server
     pthread_t reception_thread;
