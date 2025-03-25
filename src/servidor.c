@@ -309,7 +309,6 @@ void *handleClient(void *arg) {
         if (bytesReceived <= 0) {
             snprintf(buffer, BUFFER_SIZE, "%.900s disconnected", client.name);
             use_window(chat_win, printInChatWin, buffer);
-            removeClientConn(c_list,client);
             break;
         }
 

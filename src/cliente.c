@@ -147,7 +147,6 @@ void *receive_messages() {
             snprintf(buffer, sizeof(buffer), "Server disconnected, press enter to close\n");
             use_window(chat_win, printInChatWin, buffer);
             use_window(chat_win, clearInputWin, buffer);
-            wgetnstr(input_win, buffer, 0);
             endwin(); close(client); free(temp);
             pthread_mutex_destroy(&lock);
             exit(0);
