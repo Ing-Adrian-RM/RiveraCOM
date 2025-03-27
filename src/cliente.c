@@ -6,7 +6,7 @@
 
 #include "server_elements.h"
 
-char SERVER[INET_ADDRSTRLEN];
+char SERVER[BUFFER_SIZE];
 
 ///////////////////////////////////////////////////////////////////////////////
 // print_in_chatwin-> 
@@ -202,18 +202,21 @@ void discoverServer() {
 
     // Wait for server response
     memset(buffer, 0, sizeof(buffer));
-    if (recvfrom(sock, buffer, sizeof(buffer), 0, (struct sockaddr *)&server_addr, &addr_len) < 0) {
+    ssize_t bytes_received = recvfrom(sock, buffer, sizeof(buffer) - 1, 0, (struct sockaddr *)&server_addr, &addr_len);
+    if (bytes_received > 0) {
+        buffer[bytes_received] = '\0'; // Null-terminate the received string
+    } else {
         perror("Error receiving server response");
         close(sock);
         return;
     }
-
     close(sock);
 
     // Modify the server's IP
-    strncpy(SERVER, buffer, INET_ADDRSTRLEN);
-    SERVER[sizeof(INET_ADDRSTRLEN) - 1] = '\0';
-
+    printf("%s\n",buffer);
+    strncpy(SERVER, buffer, BUFFER_SIZE);
+    SERVER[BUFFER_SIZE - 1] = '\0';
+    printf("%s\n", SERVER);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

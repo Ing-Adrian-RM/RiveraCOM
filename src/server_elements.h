@@ -31,7 +31,7 @@
 
 //Variables ///////////////////////////////////////////////////////////////////
 
-extern char SERVER[INET_ADDRSTRLEN];
+extern char SERVER[BUFFER_SIZE];
 char buffer[BUFFER_SIZE], temp_buffer[BUFFER_SIZE], receiver_name[BUFFER_SIZE], sender_name[BUFFER_SIZE], query[512], *temp = NULL;
 int client, server, line=1, max_width, BUFFER_SEND_SIZE, connected_clients;
 
@@ -83,9 +83,11 @@ ssize_t receiveGif(char *file_path, CLIENT client);
 void *handleClient(void *arg);
 void send_messages(SND_RCV sr, CLIENT_LIST_PTR ptr, char *buffer, char *temp_buffer);
 void *inputWindowManagement(void *arg);
+void *discovery();
 
 // Functions of client //
 void *receive_messages();
+void discoverServer();
 
 // Functions for both //
 void setup();
