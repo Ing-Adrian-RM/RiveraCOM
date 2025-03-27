@@ -147,10 +147,10 @@ void *receive_messages() {
 
         if (bytes_read <= 0) {
             use_window(chat_win, clearChatWin, buffer);
-            snprintf(buffer, sizeof(buffer), "Server disconnected, press enter to close\n");
+            snprintf(buffer, sizeof(buffer), "Server disconnected, closing in 3 seconds...\n");
             use_window(chat_win, printInChatWin, buffer);
             use_window(chat_win, clearInputWin, buffer);
-            wgetnstr(input_win, buffer, BUFFER_SEND_SIZE - sizeof("Message: "));
+            sleep(3); // Wait for 3 seconds
             endwin(); close(client); free(temp);
             pthread_mutex_destroy(&lock);
             exit(0);
@@ -167,6 +167,9 @@ void *receive_messages() {
     return NULL;
 }
 
+///////////////////////////////////////////////////////////////////////////////
+// discoverServer-> 
+///////////////////////////////////////////////////////////////////////////////
 void discoverServer() {
     int sock;
     struct sockaddr_in server_addr;
@@ -213,10 +216,8 @@ void discoverServer() {
     close(sock);
 
     // Modify the server's IP
-    printf("%s\n",buffer);
     strncpy(SERVER, buffer, BUFFER_SIZE);
     SERVER[BUFFER_SIZE - 1] = '\0';
-    printf("%s\n", SERVER);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -225,7 +226,6 @@ void discoverServer() {
 void setup() {
     discoverServer();
 
-    struct sockaddr_in server_address;
     pthread_mutex_init(&lock, NULL);
 
     // Create socket
@@ -236,18 +236,18 @@ void setup() {
     }
 
     // Configure the server address
-    server_address.sin_family = AF_INET;
-    server_address.sin_port = htons(PORT);
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(PORT);
     
     // Replace with the server's IP address
-    if (inet_pton(AF_INET, SERVER, &server_address.sin_addr) <= 0) {
+    if (inet_pton(AF_INET, SERVER, &server_addr.sin_addr) <= 0) {
         perror("Invalid or unsupported address");
         close(client);
         exit(EXIT_FAILURE);
     }
 
     // Connect to the server
-    if (connect(client, (struct sockaddr *)&server_address, sizeof(server_address)) < 0) {
+    if (connect(client, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
         perror("Connection error");
         close(client);
         exit(EXIT_FAILURE);
