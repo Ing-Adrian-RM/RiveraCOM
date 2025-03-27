@@ -441,7 +441,7 @@ void *discovery() {
             if (ifa->ifa_addr == NULL) continue;
             if (ifa->ifa_addr->sa_family == AF_INET) {
                 struct sockaddr_in *addr = (struct sockaddr_in *)ifa->ifa_addr;
-                if (strcmp(ifa->ifa_name, "lo") != 0) { // Ignorar loopback
+                if (strcmp(ifa->ifa_name, "lo") != 0) {
                     inet_ntop(AF_INET, &addr->sin_addr, server_ip, INET_ADDRSTRLEN);
                     break;
                 }
@@ -449,7 +449,6 @@ void *discovery() {
         }
         freeifaddrs(ifaddr);
     }   
-    strncpy(server_ip, "message", BUFFER_SIZE);
 
     while (1) {
         memset(buffer, 0, sizeof(buffer));
