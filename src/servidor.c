@@ -413,9 +413,10 @@ void *inputWindowManagement(void *arg)
 
 void *discovery() {
     int sock;
-    struct sockaddr_in server_addr, client_addr;
+    struct sockaddr_in server_addr, client_addr, local_addr;
     char buffer[BUFFER_SIZE];
     socklen_t addr_len = sizeof(client_addr);
+    socklen_t local_addr_len = sizeof(local_addr);
 
     if ((sock = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
         perror("Error creating UDP socket");
@@ -433,16 +434,30 @@ void *discovery() {
         return NULL;
     }
 
-    char server_ip[INET_ADDRSTRLEN];
-    strncpy(server_ip, inet_ntoa(server_addr.sin_addr), INET_ADDRSTRLEN - 1);
-    server_ip[INET_ADDRSTRLEN - 1] = '\0';
+    char server_ip[BUFFER_SIZE] = "0.0.0.0";
+    struct ifaddrs *ifaddr, *ifa;
+    if (getifaddrs(&ifaddr) == 0) {
+        for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
+            if (ifa->ifa_addr == NULL) continue;
+            if (ifa->ifa_addr->sa_family == AF_INET) {
+                struct sockaddr_in *addr = (struct sockaddr_in *)ifa->ifa_addr;
+                if (strcmp(ifa->ifa_name, "lo") != 0) { // Ignorar loopback
+                    inet_ntop(AF_INET, &addr->sin_addr, server_ip, INET_ADDRSTRLEN);
+                    break;
+                }
+            }
+        }
+        freeifaddrs(ifaddr);
+    }   
+    strncpy(server_ip, "message", BUFFER_SIZE);
+
     while (1) {
         memset(buffer, 0, sizeof(buffer));
         if (recvfrom(sock, buffer, sizeof(buffer), 0, (struct sockaddr *)&client_addr, &addr_len) < 0) {
             perror("Error receiving message");
             continue;
         }
-        if (strcmp(buffer, "DISCOVERY_MESSAGE") == 0) sendto(sock, server_ip, strlen(server_ip), 0, (struct sockaddr *)&client_addr, addr_len);
+        if (strcmp(buffer, "DISCOVERY_MESSAGE") == 0) sendto(sock, server_ip, sizeof(server_ip), 0, (struct sockaddr *)&client_addr, addr_len);
     }
 
     close(sock);

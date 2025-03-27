@@ -26,6 +26,7 @@
 #include <pthread.h>
 #include <mysql/mysql.h>
 #include <ncurses.h>
+#include <ifaddrs.h>
 
 
 //Variables ///////////////////////////////////////////////////////////////////
