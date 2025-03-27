@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// Server Module
+// Module
 // Author: Adrián Rodríguez Murillo
 //
 ///////////////////////////////////////////////////////////////////////////////
@@ -212,7 +212,7 @@ ssize_t sendGif(char *file_path, CLIENT client) {
         use_window(chat_win, printInChatWin, buffer);
         return total_bytes_sent;
     }
-
+    //mvwprintw(chat_win, line +6, 1, "here");
     while ((bytes_read = fread(buffer, 1, sizeof(buffer), file)) > 0) {
         ssize_t bytes_sent = send(client.socket, buffer, bytes_read, 0);
         if (bytes_sent < 0) {
@@ -337,11 +337,13 @@ void send_messages(SND_RCV sr, CLIENT_LIST_PTR ptr, char *buffer, char *temp_buf
         char file_path[BUFFER_SIZE];
         snprintf(file_path, sizeof(file_path), "./media/gifs/%s.gif", buffer + 4);        
         if (access(file_path, F_OK) == 0) {
+            send(ptr->client.socket, buffer, strlen(buffer), 0);
             size_t bytes_send = sendGif(file_path, ptr->client);
             if (bytes_send > 0) {
                 memset(buffer, '\0', BUFFER_SEND_SIZE);
                 snprintf(buffer, BUFFER_SEND_SIZE, "%s sent. Total bytes sent: %zu", temp_buffer, bytes_send);
                 use_window(chat_win, printInChatWin, buffer);
+                send(ptr->client.socket, buffer, strlen(buffer), 0);
             } else {
                 memset(temp_buffer, '\0', BUFFER_SIZE);
                 snprintf(temp_buffer, BUFFER_SIZE, "Error: Failed to send gif.");
@@ -406,10 +408,55 @@ void *inputWindowManagement(void *arg)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+// discovery-> 
+///////////////////////////////////////////////////////////////////////////////
+
+void *discovery() {
+    int sock;
+    struct sockaddr_in server_addr, client_addr;
+    char buffer[BUFFER_SIZE];
+    socklen_t addr_len = sizeof(client_addr);
+
+    if ((sock = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+        perror("Error creating UDP socket");
+        return NULL;
+    }
+
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_addr.s_addr = INADDR_ANY;
+    server_addr.sin_port = htons(DISCOVERY_PORT);
+
+    if (bind(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+        perror("Error binding UDP socket");
+        close(sock);
+        return NULL;
+    }
+
+    char server_ip[INET_ADDRSTRLEN];
+    strncpy(server_ip, inet_ntoa(server_addr.sin_addr), INET_ADDRSTRLEN - 1);
+    server_ip[INET_ADDRSTRLEN - 1] = '\0';
+    while (1) {
+        memset(buffer, 0, sizeof(buffer));
+        if (recvfrom(sock, buffer, sizeof(buffer), 0, (struct sockaddr *)&client_addr, &addr_len) < 0) {
+            perror("Error receiving message");
+            continue;
+        }
+        if (strcmp(buffer, "DISCOVERY_MESSAGE") == 0) sendto(sock, server_ip, strlen(server_ip), 0, (struct sockaddr *)&client_addr, addr_len);
+    }
+
+    close(sock);
+}
+
+///////////////////////////////////////////////////////////////////////////////
 // setup-> 
 ///////////////////////////////////////////////////////////////////////////////
 void setup()
 {   
+    pthread_t discovery_thread;
+    pthread_create(&discovery_thread, NULL, discovery, NULL);
+    pthread_detach(discovery_thread);
+
     char buffer[BUFFER_SIZE];
     server = socket(AF_INET, SOCK_STREAM, 0);
 

@@ -6,7 +6,7 @@
 
 #include "server_elements.h"
 
-
+char SERVER[INET_ADDRSTRLEN];
 
 ///////////////////////////////////////////////////////////////////////////////
 // print_in_chatwin-> 
@@ -167,10 +167,61 @@ void *receive_messages() {
     return NULL;
 }
 
+void discoverServer() {
+    int sock;
+    struct sockaddr_in server_addr;
+    char buffer[BUFFER_SIZE];
+    socklen_t addr_len = sizeof(server_addr);
+
+    // Create UDP socket
+    if ((sock = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+        perror("Error creating UDP socket");
+        return;
+    }
+
+    // Configure broadcast address
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_addr.s_addr = inet_addr("255.255.255.255");
+    server_addr.sin_port = htons(DISCOVERY_PORT);
+
+    // Enable broadcast on the socket
+    int broadcast = 1;
+    if (setsockopt(sock, SOL_SOCKET, SO_BROADCAST, &broadcast, sizeof(broadcast)) < 0) {
+        perror("Error enabling broadcast");
+        close(sock);
+        return;
+    }
+
+    // Send discovery message
+    if (sendto(sock, "DISCOVERY_MESSAGE", strlen("DISCOVERY_MESSAGE"), 0, (struct sockaddr *)&server_addr, addr_len) < 0) {
+        perror("Error sending discovery message");
+        close(sock);
+        return;
+    }
+
+    // Wait for server response
+    memset(buffer, 0, sizeof(buffer));
+    if (recvfrom(sock, buffer, sizeof(buffer), 0, (struct sockaddr *)&server_addr, &addr_len) < 0) {
+        perror("Error receiving server response");
+        close(sock);
+        return;
+    }
+
+    close(sock);
+
+    // Modify the server's IP
+    strncpy(SERVER, buffer, INET_ADDRSTRLEN);
+    SERVER[sizeof(INET_ADDRSTRLEN) - 1] = '\0';
+
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // setup-> 
 ///////////////////////////////////////////////////////////////////////////////
 void setup() {
+    discoverServer();
+
     struct sockaddr_in server_address;
     pthread_mutex_init(&lock, NULL);
 

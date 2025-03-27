@@ -9,8 +9,9 @@
 #define SERVER_ELEMENTS_H
 
 #define PORT 1234
+#define DISCOVERY_PORT 8888
 #define BUFFER_SIZE 1024
-#define SERVER "172.24.102.88"
+//#define SERVER "172.24.102.88"
 #define USER "RIVERA_USER"
 #define PASSWORD "8790"
 #define DATABASE "RIVERACOM_DB"
@@ -29,6 +30,7 @@
 
 //Variables ///////////////////////////////////////////////////////////////////
 
+extern char SERVER[INET_ADDRSTRLEN];
 char buffer[BUFFER_SIZE], temp_buffer[BUFFER_SIZE], receiver_name[BUFFER_SIZE], sender_name[BUFFER_SIZE], query[512], *temp = NULL;
 int client, server, line=1, max_width, BUFFER_SEND_SIZE, connected_clients;
 
