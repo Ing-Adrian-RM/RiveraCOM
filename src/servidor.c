@@ -251,12 +251,11 @@ ssize_t sendGif(char *file_path, CLIENT client) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// receiveGif-> Receives a .gif file from a client
+// receiveGif-> Receives a .gif file
 ///////////////////////////////////////////////////////////////////////////////
-ssize_t receiveGif(char *file_path, CLIENT client) {
+ssize_t receiveGif(int gif_size, char *file_path, CLIENT client) {
     FILE *file = fopen(file_path, "wb");
     char buffer[BUFFER_SIZE];
-    memset(buffer, '\0', BUFFER_SIZE);
     ssize_t bytes_received, total_bytes_received = 0;
 
     if (!file) {
@@ -265,7 +264,9 @@ ssize_t receiveGif(char *file_path, CLIENT client) {
         return total_bytes_received;
     }    
 
-    while ((bytes_received = recv(client.socket, buffer, sizeof(buffer), 0)) > 0) {
+    while (gif_size > total_bytes_received) {
+        memset(buffer, '\0', BUFFER_SIZE);
+        bytes_received = recv(client.socket, buffer, sizeof(buffer), 0);
         fwrite(buffer, 1, bytes_received, file);
         if (bytes_received < 0) {
             memset(buffer, '\0', BUFFER_SIZE);
@@ -275,7 +276,6 @@ ssize_t receiveGif(char *file_path, CLIENT client) {
         }
         total_bytes_received += bytes_received;
     }
-
     fclose(file);
     return total_bytes_received;
 }
@@ -339,11 +339,24 @@ void *handleClient(void *arg) {
         }
 
         if (strncmp(buffer, "gif", 3) == 0){
+            int gif_size = 0;
             char file_path[BUFFER_SIZE];
-            snprintf(file_path, sizeof(file_path), "./media/gifs/%s.gif", (buffer + 4));                 
-            size_t bytes_received = receiveGif(file_path, client);
+            char *colon_pos = strchr(buffer, ':');
+            if (colon_pos != NULL) {
+                size_t gif_name_length = colon_pos - (buffer + 4);
+                char gif_name[gif_name_length + 1];
+                strncpy(gif_name, buffer + 4, gif_name_length);
+                gif_name[gif_name_length] = '\0';
+                strncpy(name, gif_name, sizeof(name));
+                char *value = colon_pos + 1;
+                gif_size = atoi(value);
+            }
+            snprintf(file_path, sizeof(file_path), "./media/gifs/%.100s.gif", name);
+            size_t bytes_received = receiveGif(gif_size, file_path, client_i);
+            snprintf(temp_buffer, sizeof(temp_buffer), "gif %s received. Total bytes transmited: %zu", name, bytes_received);
+            use_window(chat_win, printInChatWin, temp_buffer);
         }
-        use_window(chat_win, printInChatWin, temp_buffer);
+        else use_window(chat_win, printInChatWin, temp_buffer);
     }
 
     c_list = removeClientConn(c_list, client);

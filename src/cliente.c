@@ -90,7 +90,6 @@ ssize_t sendGif(char *file_path, CLIENT client) {
         use_window(chat_win, printInChatWin, buffer);
         return total_bytes_sent;
     }
-
     while ((bytes_read = fread(buffer, 1, sizeof(buffer), file)) > 0) {
         ssize_t bytes_sent = send(client.socket, buffer, bytes_read, 0);
         if (bytes_sent < 0) {
@@ -107,7 +106,7 @@ ssize_t sendGif(char *file_path, CLIENT client) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// receiveGif-> Receives a .gif file from a client
+// receiveGif-> Receives a .gif file
 ///////////////////////////////////////////////////////////////////////////////
 ssize_t receiveGif(int gif_size, char *file_path, CLIENT client) {
     FILE *file = fopen(file_path, "wb");
@@ -307,7 +306,7 @@ int main() {
     setup();
 
     char buffer[BUFFER_SEND_SIZE];
-    char temp_buffer[BUFFER_SIZE];
+    char temp_buffer[BUFFER_SIZE*2];
 
     SND_RCV sr;
     strncpy(sr.sender_name, "Server", BUFFER_SIZE);
@@ -332,13 +331,18 @@ int main() {
 
         if (strncmp(buffer, "gif", 3) == 0) {
             char file_path[BUFFER_SIZE];
-            snprintf(file_path, sizeof(file_path), "./media/gifs/%s.gif", buffer + 4);        
-            if (access(file_path, F_OK) == 0) {
+            snprintf(file_path, sizeof(file_path), "./media/gifs/%s.gif", buffer + 4);
+            struct stat file_info;
+            if (!stat(file_path, &file_info)) {
+                memset(temp_buffer, '\0', sizeof(temp_buffer));
+                snprintf(temp_buffer, BUFFER_SIZE, "%s:%lu", buffer, file_info.st_size);
+                send(client_i.socket, temp_buffer, strlen(temp_buffer), 0);
+                sleep(1);
                 size_t bytes_send = sendGif(file_path, client_i);
                 if (bytes_send > 0) {
-                    memset(buffer, '\0', BUFFER_SEND_SIZE);
-                    snprintf(buffer, BUFFER_SEND_SIZE, "%s sent. Total bytes sent: %zu", temp_buffer, bytes_send);
-                    use_window(chat_win, printInChatWin, buffer);
+                    memset(temp_buffer, '\0', BUFFER_SIZE*2);
+                    snprintf(temp_buffer, BUFFER_SIZE*2, "%s sent. Total bytes sent: %zu", buffer, bytes_send);
+                    use_window(chat_win, printInChatWin, temp_buffer);
                 } else {
                     memset(temp_buffer, '\0', BUFFER_SIZE);
                     snprintf(temp_buffer, BUFFER_SIZE, "Error: Failed to send gif.");
@@ -349,7 +353,7 @@ int main() {
                 snprintf(temp_buffer, BUFFER_SIZE, "Error: Gif not found.");
                 use_window(chat_win, printInChatWin, temp_buffer);
             }
-        } else {
+        }else {
             use_window(chat_win, printInChatWin, temp_buffer);
             send(client_i.socket, buffer, strlen(buffer), 0);
         }
