@@ -80,7 +80,7 @@ int printInChatWin(WINDOW *win, void *arg);
 int clearChatWin(WINDOW *win, void *arg);
 int clearInputWin(WINDOW *win, void *arg);
 ssize_t sendGif(char *file_path, CLIENT client);
-ssize_t receiveGif(char *file_path, CLIENT client);
+ssize_t receiveGif(int gif_size, char *file_path, CLIENT client);
 void *handleClient(void *arg);
 void send_messages(SND_RCV sr, CLIENT_LIST_PTR ptr, char *buffer, char *temp_buffer);
 void *inputWindowManagement(void *arg);
