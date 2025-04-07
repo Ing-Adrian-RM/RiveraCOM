@@ -46,6 +46,25 @@ void registerUser(CLIENT client) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+// printClientConn-> Print the connected clients list
+///////////////////////////////////////////////////////////////////////////////
+CLIENT_LIST_PTR printClientConn(CLIENT_LIST_PTR c_list){
+    char buffer[BUFFER_SIZE];
+    if (c_list == NULL) {
+        snprintf(buffer, sizeof(buffer), "Connected clients list: NULL");
+        use_window(chat_win, printInChatWin, buffer);
+        return c_list;
+    } else {
+        for (CLIENT_LIST_PTR ptr = c_list; ptr != NULL; ptr = ptr->next){
+            memset(buffer, '\0', BUFFER_SIZE);
+            snprintf(buffer, sizeof(buffer), "Client: %.100s, IP: %.100s, Client_socket: %d", ptr->client.name, ptr->client.ip, ptr->client.socket);
+            use_window(chat_win, printInChatWin, buffer);
+        }
+    }
+    return c_list;
+}
+
+///////////////////////////////////////////////////////////////////////////////
 // addClientConn-> Insert an actual connected client in a connected clients list
 ///////////////////////////////////////////////////////////////////////////////
 CLIENT_LIST_PTR addClientConn(CLIENT_LIST_PTR c_list, CLIENT client){
@@ -53,12 +72,16 @@ CLIENT_LIST_PTR addClientConn(CLIENT_LIST_PTR c_list, CLIENT client){
     new_node->client = client;
     new_node->next = NULL;
     if (c_list == NULL) {
+        snprintf(buffer, sizeof(buffer), "1º Added client");
+        use_window(chat_win, printInChatWin, buffer);
         return new_node;
     } else {
         for (CLIENT_LIST_PTR ptr = c_list; ptr != NULL; ptr = ptr->next){
             if (ptr->next == NULL) {
                 ptr->next = new_node;
-                return c_list;
+                snprintf(buffer, sizeof(buffer), "Added client no first");
+                use_window(chat_win, printInChatWin, buffer);
+                return ptr;
             }
         }
     }
@@ -76,7 +99,7 @@ CLIENT_LIST_PTR removeClientConn(CLIENT_LIST_PTR c_list, CLIENT client) {
         if (strcmp(current->client.ip, client.ip) == 0) {
             if (prev == NULL) {
                 CLIENT_LIST_PTR temp = current;
-                c_list = current->next;
+                c_list = NULL;
                 close(temp->client.socket);
                 free(temp);
             } else {
@@ -89,7 +112,7 @@ CLIENT_LIST_PTR removeClientConn(CLIENT_LIST_PTR c_list, CLIENT client) {
         prev = current;
         current = current->next;
     }
-
+    printClientConn(c_list);
     return c_list;
 }
 
@@ -140,9 +163,9 @@ int printInChatWin(WINDOW *win, void *arg) {
             box(chat_win, ' ', ' ');
             scroll(chat_win);
             box(chat_win, 0, 0);
-            pthread_mutex_lock(&lock);
+            //pthread_mutex_lock(&lock);
             line--;
-            pthread_mutex_unlock(&lock);
+            //pthread_mutex_unlock(&lock);
         }
 
         memset(temp, ' ', sizeof(max_width + 1));
@@ -164,9 +187,9 @@ int printInChatWin(WINDOW *win, void *arg) {
         wrefresh(chat_win);
         lines_writed++;
 
-        pthread_mutex_lock(&lock);
+        //pthread_mutex_lock(&lock);
         line++;
-        pthread_mutex_unlock(&lock);
+        //pthread_mutex_unlock(&lock);
     }
 
     wmove(input_win, sizeof("Message: "), 1);
@@ -212,7 +235,6 @@ ssize_t sendGif(char *file_path, CLIENT client) {
         use_window(chat_win, printInChatWin, buffer);
         return total_bytes_sent;
     }
-    //mvwprintw(chat_win, line +6, 1, "here");
     while ((bytes_read = fread(buffer, 1, sizeof(buffer), file)) > 0) {
         ssize_t bytes_sent = send(client.socket, buffer, bytes_read, 0);
         if (bytes_sent < 0) {
@@ -312,6 +334,7 @@ void *handleClient(void *arg) {
         if (bytesReceived <= 0) {
             snprintf(buffer, BUFFER_SIZE, "%.900s disconnected", client.name);
             use_window(chat_win, printInChatWin, buffer);
+
             break;
         }
 
@@ -323,7 +346,7 @@ void *handleClient(void *arg) {
         use_window(chat_win, printInChatWin, temp_buffer);
     }
 
-    removeClientConn(c_list, client);
+    c_list = removeClientConn(c_list, client);
     free(arg);
     return NULL;
 }
@@ -335,15 +358,18 @@ void send_messages(SND_RCV sr, CLIENT_LIST_PTR ptr, char *buffer, char *temp_buf
 {
     if (strncmp(buffer, "gif", 3) == 0) {
         char file_path[BUFFER_SIZE];
-        snprintf(file_path, sizeof(file_path), "./media/gifs/%s.gif", buffer + 4);        
-        if (access(file_path, F_OK) == 0) {
-            send(ptr->client.socket, buffer, strlen(buffer), 0);
+        snprintf(file_path, sizeof(file_path), "./media/gifs/%s.gif", buffer + 4);
+        struct stat file_info;
+        if (!stat(file_path, &file_info)) {
+            memset(temp_buffer, '\0', sizeof(temp_buffer));
+            snprintf(temp_buffer, BUFFER_SIZE, "%s:%lu", buffer, file_info.st_size);
+            send(ptr->client.socket, temp_buffer, strlen(temp_buffer), 0);
+            sleep(1);
             size_t bytes_send = sendGif(file_path, ptr->client);
             if (bytes_send > 0) {
-                memset(buffer, '\0', BUFFER_SEND_SIZE);
-                snprintf(buffer, BUFFER_SEND_SIZE, "%s sent. Total bytes sent: %zu", temp_buffer, bytes_send);
-                use_window(chat_win, printInChatWin, buffer);
-                send(ptr->client.socket, buffer, strlen(buffer), 0);
+                memset(temp_buffer, '\0', BUFFER_SIZE*2);
+                snprintf(temp_buffer, BUFFER_SIZE*2, "%s sent. Total bytes sent: %zu", buffer, bytes_send);
+                use_window(chat_win, printInChatWin, temp_buffer);
             } else {
                 memset(temp_buffer, '\0', BUFFER_SIZE);
                 snprintf(temp_buffer, BUFFER_SIZE, "Error: Failed to send gif.");
@@ -536,15 +562,16 @@ int main()
     }
 
     while (1)
-    {
+    {   
         client = accept(server, (struct sockaddr *)&client_addr, &addr_size);
         client_i.socket = client;
         inet_ntop(AF_INET, &client_addr.sin_addr, client_i.ip, INET_ADDRSTRLEN);
         client_i.name[0] = '\0';
         if (client >= 0) {
-            pthread_mutex_lock(&lock);
+            //pthread_mutex_lock(&lock);
             c_list = addClientConn(c_list, client_i);
-            pthread_mutex_unlock(&lock);
+            printClientConn(c_list);
+            //pthread_mutex_unlock(&lock);
             pthread_t client_thread;
             CLIENT_PTR client_socket = (CLIENT_PTR)malloc(sizeof(CLIENT));
             *client_socket = client_i;

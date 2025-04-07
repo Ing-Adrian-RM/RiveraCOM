@@ -27,6 +27,7 @@
 #include <mysql/mysql.h>
 #include <ncurses.h>
 #include <ifaddrs.h>
+#include <sys/stat.h>
 
 
 //Variables ///////////////////////////////////////////////////////////////////
