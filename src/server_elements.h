@@ -70,11 +70,12 @@ socklen_t addr_size = sizeof(client_addr);
 // Functions //////////////////////////////////////////////////////////////////
 
 // Functions of server //
-MYSQL_RES* executeQuery(const char *query);
+MYSQL_RES* executeDataQuery(const char *query);
+unsigned long executeEnumQuery(const char *query);
 int userDBExists(char *search_by, int option);
 CLIENT registerDBUser(CLIENT client);
 void printDBUsers();
-void updateDBUser(CLIENT client, int field, int value);
+void updateDBUser(char *command);
 void deleteDBUser(char *command);
 void printClientConn(CLIENT_LIST_PTR c_list);
 CLIENT_LIST_PTR addClientConn(CLIENT_LIST_PTR c_list, CLIENT client);

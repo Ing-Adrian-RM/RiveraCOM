@@ -137,7 +137,6 @@ void receiveGif(char *buffer, CLIENT client) {
     char temp_buffer[BUFFER_SIZE];
     char gif_name[BUFFER_SIZE];
     char file_path[BUFFER_SIZE];
-    use_window(chat_win, printInChatWin, buffer);
     strtok(buffer, ":"); char *value = strtok(NULL, ":");
     strtok(buffer, " "); char *name = strtok(NULL, " ");
     snprintf(gif_name, strlen(name) + 1, "%s", name);

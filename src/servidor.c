@@ -8,9 +8,9 @@
 #include "server_elements.h"
 
 ///////////////////////////////////////////////////////////////////////////////
-// executeQuery-> 
+// executeDataQuery-> 
 ///////////////////////////////////////////////////////////////////////////////
-MYSQL_RES* executeQuery(const char *query) {
+MYSQL_RES* executeDataQuery(const char *query) {
     conn = mysql_init(NULL);
     if (!mysql_real_connect(conn, LOCAL_HOST, USER, PASSWORD, DATABASE, 0, NULL, 0)) {
         fprintf(stderr, "Connection failed: %s\n", mysql_error(conn));
@@ -26,6 +26,24 @@ MYSQL_RES* executeQuery(const char *query) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+// executeDataQuery-> 
+///////////////////////////////////////////////////////////////////////////////
+unsigned long executeEnumQuery(const char *query) {
+    conn = mysql_init(NULL);
+    if (!mysql_real_connect(conn, LOCAL_HOST, USER, PASSWORD, DATABASE, 0, NULL, 0)) {
+        fprintf(stderr, "Connection failed: %s\n", mysql_error(conn));
+        return 0;
+    }
+    if (mysql_query(conn, query)) {
+        fprintf(stderr, "Query error: %s\n", mysql_error(conn));
+        return 0;
+    }
+    unsigned long affected = mysql_affected_rows(conn);
+    mysql_close(conn);
+    return affected;
+}
+
+///////////////////////////////////////////////////////////////////////////////
 // userDBExists-> 
 ///////////////////////////////////////////////////////////////////////////////
 int userDBExists(char *search_by, int option) {
@@ -36,7 +54,7 @@ int userDBExists(char *search_by, int option) {
     } else if (option == 1) {
         snprintf(query, sizeof(query), "SELECT * FROM users WHERE ip='%s'", search_by);
     }
-    res = executeQuery(query);
+    res = executeDataQuery(query);
     if ((row = mysql_fetch_row(res))) exists = 1;
     mysql_free_result(res);
     return exists;
@@ -52,7 +70,7 @@ CLIENT registerDBUser(CLIENT client) {
     char *ip = client.ip;
     if (userDBExists(ip,1)) {
         snprintf(query, QUERY_SIZE, "SELECT name FROM users WHERE ip='%s'", client.ip);
-        res = executeQuery(query);
+        res = executeDataQuery(query);
         row = mysql_fetch_row(res);
         strncpy(client.name, (const char *)row[0], sizeof(buffer) - 1);
         client.name[sizeof(client.name) - 1] = '\0';
@@ -83,7 +101,7 @@ CLIENT registerDBUser(CLIENT client) {
         strncpy(client.name, buffer, strlen(buffer));
         client.name[strlen(client.name)] = '\0';
         snprintf(query, sizeof(query), "INSERT INTO users (ip, name, balance, uploaded, downloaded) VALUES ('%.255s', '%.255s', 0, 0, 0)", client.ip, client.name);
-        executeQuery(query);
+        executeDataQuery(query);
         memset(buffer, '\0', BUFFER_SIZE);
         snprintf(buffer, BUFFER_SIZE, "%.900s Connected, IP: %.100s\n", client.name, client.ip);
         use_window(chat_win, printInChatWin, buffer);
@@ -100,7 +118,7 @@ CLIENT registerDBUser(CLIENT client) {
 void printDBUsers() {
     char buffer[BUFFER_SIZE];
     snprintf(query, sizeof(query), "SELECT * FROM users");
-    res = executeQuery(query);
+    res = executeDataQuery(query);
     if (res == NULL) {
         fprintf(stderr, "Error executing query: %s\n", mysql_error(conn));
         return;
@@ -116,14 +134,70 @@ void printDBUsers() {
 ///////////////////////////////////////////////////////////////////////////////
 // updateDBUsers-> 
 ///////////////////////////////////////////////////////////////////////////////
-void updateDBUser(CLIENT client, int field, int value) {
+void updateDBUser(char *command) {
     char buffer[BUFFER_SIZE];
     char temp_buffer[BUFFER_SIZE];
-    //snprintf(query, sizeof(query), "UPDATE users SET %s = %d WHERE name='%s'", field == 0 ? "balance" : field == 1 ? "uploaded" : "downloaded", value, client.name);
-    executeQuery(query);
-    memset(buffer, '\0', BUFFER_SIZE);
-    snprintf(buffer, sizeof(buffer), "User %.100s updated in database", client.name);
-    use_window(chat_win, printInChatWin, buffer);
+    char user_name[BUFFER_SIZE];
+    SND_RCV sr;
+    strtok(command, "+"); char *value = strtok(NULL, "+");
+    strtok(command, "*"); char *variable = strtok(NULL, "*");
+    strtok(command, ":"); char *identificator = strtok(NULL, ":");
+    strtok(command, " "); char *option = strtok(NULL, " ");
+    char switcher[10] = {0};
+    if (strncmp(option, "name", 4) == 0) snprintf(switcher, sizeof(switcher), "name");
+    else if (strncmp(option, "ip", 2) == 0) snprintf(switcher, sizeof(switcher), "ip");
+    if (userDBExists(identificator,0) || userDBExists(identificator,1)){
+        memset(query, '\0', QUERY_SIZE);    
+        if (strncmp(variable, "name", 4) == 0) {
+            if (userDBExists(value, 0)) {
+                memset(buffer, '\0', BUFFER_SIZE);
+                snprintf(buffer, sizeof(buffer), "Username already exists. Request failed.");
+                use_window(chat_win, printInChatWin, buffer);
+                for (CLIENT_LIST_PTR ptr = c_list; ptr != NULL; ptr = ptr->next) {
+                    if (strncmp(ptr->client.name, identificator, strlen(ptr->client.name)) == 0 || strncmp(ptr->client.ip, identificator, strlen(ptr->client.ip)) == 0) {
+                        memset(buffer, '\0', BUFFER_SIZE);
+                        snprintf(buffer, sizeof(buffer), "Username already exists. Request failed.");
+                        send_messages(sr, ptr, buffer, temp_buffer);
+                    }
+                }
+                return;
+            }
+            else snprintf(query, sizeof(query), "UPDATE users SET name='%s' WHERE %s='%s'", value, switcher, identificator);
+        }
+        else if (strncmp(variable, "balance", 7) == 0) snprintf(query, sizeof(query), "UPDATE users SET balance='%s' WHERE %s='%s'", value, switcher, identificator);
+        else if (strncmp(variable, "uploaded", 8) == 0) snprintf(query, sizeof(query), "UPDATE users SET uploaded='%s' WHERE %s='%s'", value, switcher, identificator);
+        else if (strncmp(variable, "downloaded", 10) == 0) snprintf(query, sizeof(query), "UPDATE users SET downloaded='%s' WHERE %s='%s'", value, switcher, identificator);
+        
+        unsigned long result = executeEnumQuery(query);
+
+        memset(buffer, '\0', BUFFER_SIZE);
+        if (result >= 0){
+            snprintf(buffer, sizeof(buffer), "User %s updated in database.", identificator);
+            use_window(chat_win, printInChatWin, buffer);
+            for (CLIENT_LIST_PTR ptr = c_list; ptr != NULL; ptr = ptr->next) {
+                if (strncmp(ptr->client.name, identificator, strlen(ptr->client.name)) == 0 || strncmp(ptr->client.ip, identificator, strlen(ptr->client.ip)) == 0) {
+                    memset(buffer, '\0', BUFFER_SIZE);
+                    snprintf(temp_buffer, sizeof(temp_buffer), "Your %s information has updated in users database.", variable);
+                    //send_messages(sr, ptr, buffer, temp_buffer);
+                }
+            }
+        } 
+        else {
+            snprintf(buffer, sizeof(buffer), "Error updating database.");
+            use_window(chat_win, printInChatWin, buffer);
+            for (CLIENT_LIST_PTR ptr = c_list; ptr != NULL; ptr = ptr->next) {
+                if (strncmp(ptr->client.name, identificator, strlen(ptr->client.name)) == 0 || strncmp(ptr->client.ip, identificator, strlen(ptr->client.ip)) == 0) {
+                    memset(buffer, '\0', BUFFER_SIZE);
+                    snprintf(buffer, sizeof(buffer), "Error updating database.");
+                    send_messages(sr, ptr, buffer, temp_buffer);
+                }
+            }
+        }    
+    } else {
+        memset(buffer, '\0', BUFFER_SIZE);
+        snprintf(buffer, sizeof(buffer), "User %.100s not found in database", user_name);
+        use_window(chat_win, printInChatWin, buffer);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -144,21 +218,33 @@ void deleteDBUser(char *command){
         }
         else if (strncmp(option, "ip", 2) == 0){
             snprintf(query, sizeof(query), "SELECT name FROM users WHERE ip='%s'", user);
-            res = executeQuery(query);
+            res = executeDataQuery(query);
             row = mysql_fetch_row(res);
             strncpy(user_name, row[0], BUFFER_SIZE - 1);
             snprintf(query, sizeof(query), "DELETE FROM users WHERE ip='%s'", user);
         } 
-        executeQuery(query);
+        unsigned long result = executeEnumQuery(query);
         memset(buffer, '\0', BUFFER_SIZE);
-        snprintf(buffer, sizeof(buffer), "User %s deleted from database", user);
-        use_window(chat_win, printInChatWin, buffer);
-        for (CLIENT_LIST_PTR ptr = c_list; ptr != NULL; ptr = ptr->next) {
-            if (strncmp(ptr->client.name, user_name, strlen(ptr->client.name)) == 0) {
-                memset(buffer, '\0', BUFFER_SIZE);
-                snprintf(temp_buffer, sizeof(temp_buffer), "Your user has been deleted from the server database, you must register again.\n Type any command to proceed with disconnection and please log in again.");
-                send_messages(sr, ptr, buffer, temp_buffer);
-                removeClientConn(c_list, ptr->client);
+        if (result > 0){
+            snprintf(buffer, sizeof(buffer), "User %s deleted from database", user);
+            use_window(chat_win, printInChatWin, buffer);
+            for (CLIENT_LIST_PTR ptr = c_list; ptr != NULL; ptr = ptr->next) {
+                if (strncmp(ptr->client.name, user_name, strlen(ptr->client.name)) == 0) {
+                    memset(buffer, '\0', BUFFER_SIZE);
+                    snprintf(temp_buffer, sizeof(temp_buffer), "Your user has been deleted from the server database, you must register again.\n Type any command to proceed with disconnection and please log in again.");
+                    send_messages(sr, ptr, buffer, temp_buffer);
+                    removeClientConn(c_list, ptr->client);
+                }
+            }
+        } else {
+            snprintf(buffer, sizeof(buffer), "Error deleting user from database");
+            use_window(chat_win, printInChatWin, buffer);
+            for (CLIENT_LIST_PTR ptr = c_list; ptr != NULL; ptr = ptr->next) {
+                if (strncmp(ptr->client.name, user_name, strlen(ptr->client.name)) == 0) {
+                    memset(buffer, '\0', BUFFER_SIZE);
+                    snprintf(buffer, sizeof(buffer), "Error deleting user from database");
+                    send_messages(sr, ptr, buffer, temp_buffer);
+                }
             }
         }
     } else {
@@ -401,7 +487,6 @@ void receiveGif(char *buffer, CLIENT client) {
     char temp_buffer[BUFFER_SIZE];
     char gif_name[BUFFER_SIZE];
     char file_path[BUFFER_SIZE];
-    use_window(chat_win, printInChatWin, buffer);
     strtok(buffer, ":"); char *value = strtok(NULL, ":");
     strtok(buffer, " "); char *name = strtok(NULL, " ");
     snprintf(gif_name, strlen(name) + 1, "%s", name);
@@ -497,10 +582,11 @@ void *inputWindowManagement(void *arg)
         snprintf(temp_buffer, sizeof(temp_buffer), "Server: %.900s", buffer);
 
         if (strncmp(buffer, ".close", 6) == 0) shutdownServer(c_list);
-        else if (strncmp(buffer, ".clear", 6) == 0) {use_window(chat_win, clearChatWin, 0);}
+        else if (strncmp(buffer, ".clear", 6) == 0) {use_window(chat_win, clearChatWin, 0); use_window(input_win, clearInputWin, 0);}
         else if (strncmp(buffer, ".listc", 6) == 0) printClientConn(c_list);
         else if (strncmp(buffer, ".listdb", 7) == 0) printDBUsers();
         else if (strncmp(buffer, ".deletedb", 9) == 0) deleteDBUser(buffer);
+        else if (strncmp(buffer, ".updatedb", 9) == 0) updateDBUser(buffer);
         else if (strncmp(buffer, ".help", 5) == 0) {
             snprintf(temp_buffer, sizeof(temp_buffer), "Commands: @close, @clear, @list");
             use_window(chat_win, printInChatWin, temp_buffer);
