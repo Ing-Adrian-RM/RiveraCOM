@@ -350,13 +350,12 @@ void sendGif(char *buffer, CLIENT client) {
     char gif_name[BUFFER_SIZE];
     strncpy(gif_name, buffer + 4, strlen(buffer) - 4);
 
-    snprintf(file_path, sizeof(file_path), "./media/gifs/%s.gif", buffer + 4);
+    snprintf(file_path, sizeof(file_path), "./media/gifs/%s.gif", gif_name);
     struct stat file_info;
     if (!stat(file_path, &file_info)) {
         memset(temp_buffer, '\0', sizeof(temp_buffer));
         snprintf(temp_buffer, BUFFER_SIZE, "%s:%lu", buffer, file_info.st_size);
         send(client.socket, temp_buffer, strlen(temp_buffer), 0);
-        use_window(chat_win, printInChatWin, temp_buffer);
 
         FILE *file = fopen(file_path, "rb");
         if (!file) {
@@ -379,7 +378,7 @@ void sendGif(char *buffer, CLIENT client) {
         }
         if (total_bytes_send == file_info.st_size) {
             memset(temp_buffer, '\0', BUFFER_SIZE);
-            snprintf(temp_buffer, BUFFER_SIZE, "%.100s sent. Total bytes sent: %zu", gif_name, total_bytes_send);
+            snprintf(temp_buffer, BUFFER_SIZE, "gif %.100s sent. Total bytes sent: %zu", gif_name, total_bytes_send);
             use_window(chat_win, printInChatWin, temp_buffer);
         } else {
             memset(temp_buffer, '\0', BUFFER_SIZE);
