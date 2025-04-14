@@ -365,17 +365,19 @@ void sendGif(char *buffer, CLIENT client) {
             use_window(chat_win, printInChatWin, temp_buffer);
         }
 
-        while ((bytes_read = fread(buffer, 1, sizeof(buffer), file)) > 0) {
-            bytes_send = send(client.socket, buffer, bytes_read, 0);
+        sleep(1);
+        while ((bytes_read = fread(buffer, 1, BUFFER_SIZE, file)) > 0) {
+            send(client.socket, buffer, bytes_read, 0);
             if (bytes_send < 0) {
                 memset(temp_buffer, '\0', BUFFER_SIZE);
                 snprintf(temp_buffer, BUFFER_SIZE, "Error sending file");
                 use_window(chat_win, printInChatWin, temp_buffer);
                 break;
             }
-            total_bytes_send += bytes_send;
+            total_bytes_send += bytes_read;
+            memset(temp_buffer, '\0', BUFFER_SIZE);
         }
-        if (bytes_send > 0) {
+        if (total_bytes_send == file_info.st_size) {
             memset(temp_buffer, '\0', BUFFER_SIZE);
             snprintf(temp_buffer, BUFFER_SIZE, "%.100s sent. Total bytes sent: %zu", gif_name, total_bytes_send);
             use_window(chat_win, printInChatWin, temp_buffer);
@@ -405,8 +407,8 @@ void receiveGif(char *buffer, CLIENT client) {
     strncpy(gif_name, name, strlen(name));
     int gif_size = atoi(value);
     snprintf(file_path, sizeof(file_path), "./media/gifs/%s.gif", name);
+    
     FILE *file = fopen(file_path, "wb");
-
     if (!file) {
         memset(temp_buffer, '\0', BUFFER_SIZE);
         snprintf(temp_buffer, BUFFER_SIZE, "Error creating file");
@@ -425,7 +427,6 @@ void receiveGif(char *buffer, CLIENT client) {
         }
         total_bytes_received += bytes_received;
     }
-
     fclose(file);
     memset(temp_buffer, '\0', BUFFER_SIZE);
     snprintf(temp_buffer, BUFFER_SIZE, "%.100s: gif %.100s received. Total bytes transmited: %zu", client.name, gif_name, total_bytes_received);
@@ -483,17 +484,17 @@ void send_messages(SND_RCV sr, CLIENT_LIST_PTR ptr, char *buffer, char *temp_buf
 ///////////////////////////////////////////////////////////////////////////////
 void *inputWindowManagement(void *arg)
 {
-    char buffer[BUFFER_SEND_SIZE];
+    char buffer[BUFFER_SIZE];
     char temp_buffer[BUFFER_SIZE];
     SND_RCV sr;
 
     while (1)
     {   
-        memset(buffer, '\0', BUFFER_SEND_SIZE);
+        memset(buffer, '\0', BUFFER_SIZE);
         memset(temp_buffer, '\0', BUFFER_SIZE);
         use_window(input_win, clearInputWin, 0);
         wgetnstr(input_win, buffer, BUFFER_SEND_SIZE - sizeof("Message: "));
-        snprintf(temp_buffer, sizeof(temp_buffer), "Server: %s", buffer);
+        snprintf(temp_buffer, sizeof(temp_buffer), "Server: %.900s", buffer);
 
         if (strncmp(buffer, ".close", 6) == 0) shutdownServer(c_list);
         else if (strncmp(buffer, ".clear", 6) == 0) {use_window(chat_win, clearChatWin, 0);}

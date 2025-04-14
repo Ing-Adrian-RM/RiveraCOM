@@ -101,17 +101,19 @@ void sendGif(char *buffer, CLIENT client) {
             use_window(chat_win, printInChatWin, temp_buffer);
         }
 
+        sleep(1);
         while ((bytes_read = fread(buffer, 1, sizeof(buffer), file)) > 0) {
-            bytes_send = send(client.socket, buffer, bytes_read, 0);
+            send(client.socket, buffer, bytes_read, 0);
             if (bytes_send < 0) {
                 memset(temp_buffer, '\0', BUFFER_SIZE);
                 snprintf(temp_buffer, BUFFER_SIZE, "Error sending file");
                 use_window(chat_win, printInChatWin, temp_buffer);
                 break;
             }
-            total_bytes_send += bytes_send;
+            total_bytes_send += bytes_read;
+            memset(temp_buffer, '\0', BUFFER_SIZE);
         }
-        if (bytes_send > 0) {
+        if (total_bytes_send == file_info.st_size) {
             memset(temp_buffer, '\0', BUFFER_SIZE);
             snprintf(temp_buffer, BUFFER_SIZE, "%.100s sent. Total bytes sent: %zu", gif_name, total_bytes_send);
             use_window(chat_win, printInChatWin, temp_buffer);
@@ -138,7 +140,8 @@ void receiveGif(char *buffer, CLIENT client) {
     char file_path[BUFFER_SIZE];
     strtok(buffer, ":"); char *value = strtok(NULL, ":");
     strtok(buffer, " "); char *name = strtok(NULL, " ");
-    strncpy(gif_name, name, strlen(name));
+    snprintf(gif_name, BUFFER_SIZE, "%s\n", name);
+
     int gif_size = atoi(value);
     snprintf(file_path, sizeof(file_path), "./media/gifs/%s.gif", name);
     FILE *file = fopen(file_path, "wb");
