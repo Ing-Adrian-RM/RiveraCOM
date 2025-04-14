@@ -86,7 +86,7 @@ void sendGif(char *buffer, CLIENT client) {
     char gif_name[BUFFER_SIZE];
     strncpy(gif_name, buffer + 4, strlen(buffer) - 4);
 
-    snprintf(file_path, sizeof(file_path), "./media/gifs/%s.gif", gif_name);
+    snprintf(file_path, sizeof(file_path), "./media/gifs/%.100s.gif", gif_name);
     struct stat file_info;
     if (!stat(file_path, &file_info)) {
         memset(temp_buffer, '\0', sizeof(temp_buffer));
