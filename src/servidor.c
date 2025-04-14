@@ -401,9 +401,10 @@ void receiveGif(char *buffer, CLIENT client) {
     char temp_buffer[BUFFER_SIZE];
     char gif_name[BUFFER_SIZE];
     char file_path[BUFFER_SIZE];
+    use_window(chat_win, printInChatWin, buffer);
     strtok(buffer, ":"); char *value = strtok(NULL, ":");
     strtok(buffer, " "); char *name = strtok(NULL, " ");
-    strncpy(gif_name, name, strlen(name));
+    snprintf(gif_name, strlen(name) + 1, "%s", name);
     int gif_size = atoi(value);
     snprintf(file_path, sizeof(file_path), "./media/gifs/%s.gif", name);
     
@@ -428,7 +429,7 @@ void receiveGif(char *buffer, CLIENT client) {
     }
     fclose(file);
     memset(temp_buffer, '\0', BUFFER_SIZE);
-    snprintf(temp_buffer, BUFFER_SIZE, "%.100s: gif %.100s received. Total bytes transmited: %zu", client.name, gif_name, total_bytes_received);
+    snprintf(temp_buffer, BUFFER_SIZE, "gif %.100s received. Total bytes transmited: %zu", gif_name, total_bytes_received);
     use_window(chat_win, printInChatWin, temp_buffer);
 }
 
