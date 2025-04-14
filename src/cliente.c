@@ -139,12 +139,11 @@ void receiveGif(char *buffer, CLIENT client) {
     char file_path[BUFFER_SIZE];
     strtok(buffer, ":"); char *value = strtok(NULL, ":");
     strtok(buffer, " "); char *name = strtok(NULL, " ");
-    snprintf(gif_name, BUFFER_SIZE, "%s\n", name);
-
+    strncpy(gif_name, name, strlen(name));
     int gif_size = atoi(value);
-    snprintf(file_path, sizeof(file_path), "./media/gifs/%.100s.gif", gif_name);
+    snprintf(file_path, sizeof(file_path), "./media/gifs/%s.gif", name);
+    
     FILE *file = fopen(file_path, "wb");
-
     if (!file) {
         memset(temp_buffer, '\0', BUFFER_SIZE);
         snprintf(temp_buffer, BUFFER_SIZE, "Error creating file");
@@ -165,10 +164,9 @@ void receiveGif(char *buffer, CLIENT client) {
     }
     fclose(file);
     memset(temp_buffer, '\0', BUFFER_SIZE);
-    snprintf(temp_buffer, BUFFER_SIZE, "gif %.100s received. Total bytes transmited: %zu gif size: %d", gif_name, total_bytes_received, gif_size);
+    snprintf(temp_buffer, BUFFER_SIZE, "%.100s: gif %.100s received. Total bytes transmited: %zu", client.name, gif_name, total_bytes_received);
     use_window(chat_win, printInChatWin, temp_buffer);
 }
-
 ///////////////////////////////////////////////////////////////////////////////
 // *receive_messages-> 
 ///////////////////////////////////////////////////////////////////////////////
