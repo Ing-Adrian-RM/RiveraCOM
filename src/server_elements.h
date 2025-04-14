@@ -11,6 +11,7 @@
 #define PORT 1234
 #define DISCOVERY_PORT 8888
 #define BUFFER_SIZE 1024
+#define QUERY_SIZE 512
 //#define SERVER "172.24.102.88"
 #define USER "RIVERA_USER"
 #define PASSWORD "8790"
@@ -33,7 +34,7 @@
 //Variables ///////////////////////////////////////////////////////////////////
 
 extern char SERVER[BUFFER_SIZE];
-char buffer[BUFFER_SIZE], temp_buffer[BUFFER_SIZE], receiver_name[BUFFER_SIZE], sender_name[BUFFER_SIZE], query[512], *temp = NULL;
+char query[QUERY_SIZE], *temp = NULL;
 int client, server, line=1, max_width, BUFFER_SEND_SIZE, connected_clients;
 
 //Structs /////////////////////////////////////////////////////////////////////
@@ -51,7 +52,7 @@ typedef struct connected_clients{
 
 typedef struct sender_receiver{
     char sender_name[BUFFER_SIZE];
-    char receiver_name[BUFFER_SIZE];
+    CLIENT_LIST_PTR receiver;
 }SND_RCV, *SND_RCV_PTR;
     
 //Global Vars /////////////////////////////////////////////////////////////////
@@ -70,8 +71,12 @@ socklen_t addr_size = sizeof(client_addr);
 
 // Functions of server //
 MYSQL_RES* executeQuery(const char *query);
-int userExists(CLIENT client);
-void registerUser(CLIENT client);
+int userDBExists(char *search_by, int option);
+CLIENT registerDBUser(CLIENT client);
+void printDBUsers();
+void updateDBUser(CLIENT client, int field, int value);
+void deleteDBUser(char *command);
+void printClientConn(CLIENT_LIST_PTR c_list);
 CLIENT_LIST_PTR addClientConn(CLIENT_LIST_PTR c_list, CLIENT client);
 CLIENT_LIST_PTR removeClientConn(CLIENT_LIST_PTR c_list, CLIENT client);
 void disconnectAllClients(CLIENT_LIST_PTR c_list);
@@ -79,8 +84,8 @@ void shutdownServer(CLIENT_LIST_PTR c_list);
 int printInChatWin(WINDOW *win, void *arg);
 int clearChatWin(WINDOW *win, void *arg);
 int clearInputWin(WINDOW *win, void *arg);
-ssize_t sendGif(char *file_path, CLIENT client);
-ssize_t receiveGif(int gif_size, char *file_path, CLIENT client);
+void sendGif(char *buffer, CLIENT client);
+void receiveGif(char *buffer, CLIENT client);
 void *handleClient(void *arg);
 void send_messages(SND_RCV sr, CLIENT_LIST_PTR ptr, char *buffer, char *temp_buffer);
 void *inputWindowManagement(void *arg);

@@ -26,11 +26,16 @@ MYSQL_RES* executeQuery(const char *query) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// userExists-> 
+// userDBExists-> 
 ///////////////////////////////////////////////////////////////////////////////
-int userExists(CLIENT client) {
+int userDBExists(char *search_by, int option) {
     int exists = 0;
-    snprintf(query, sizeof(query), "SELECT * FROM users WHERE ip='%s'", client.ip);
+    memset(query, '\0', QUERY_SIZE);
+    if (option == 0) {
+        snprintf(query, sizeof(query), "SELECT * FROM users WHERE name='%s'", search_by);
+    } else if (option == 1) {
+        snprintf(query, sizeof(query), "SELECT * FROM users WHERE ip='%s'", search_by);
+    }
     res = executeQuery(query);
     if ((row = mysql_fetch_row(res))) exists = 1;
     mysql_free_result(res);
@@ -38,30 +43,149 @@ int userExists(CLIENT client) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// registerUser-> 
+// registerDBUser-> 
 ///////////////////////////////////////////////////////////////////////////////
-void registerUser(CLIENT client) {
-    snprintf(query, sizeof(query), "INSERT INTO users (ip, name, balance, uploaded, downloaded) VALUES ('%.255s', '%.255s', 0, 0, 0)", client.ip, client.name);
+CLIENT registerDBUser(CLIENT client) {
+    char buffer[BUFFER_SIZE];
+    char temp_buffer[BUFFER_SIZE];
+    int bytesReceived;
+    char *ip = client.ip;
+    if (userDBExists(ip,1)) {
+        snprintf(query, QUERY_SIZE, "SELECT name FROM users WHERE ip='%s'", client.ip);
+        res = executeQuery(query);
+        row = mysql_fetch_row(res);
+        strncpy(client.name, (const char *)row[0], sizeof(buffer) - 1);
+        client.name[sizeof(client.name) - 1] = '\0';
+        memset(buffer, '\0', BUFFER_SIZE);
+        snprintf(buffer, sizeof(buffer) - 1, "Welcome back, %.900s!", client.name);
+        send(client.socket, buffer, strlen(buffer), 0);
+        memset(buffer, '\0', BUFFER_SIZE);
+        snprintf(buffer, BUFFER_SIZE, "%.900s Connected, IP: %.100s\n", client.name, client.ip);
+        use_window(chat_win, printInChatWin, buffer);
+    }
+    else {
+        memset(buffer, '\0', BUFFER_SIZE);
+        snprintf(buffer, BUFFER_SIZE, "You are not registered. Please enter a unique username:");
+        send(client.socket, buffer, strlen(buffer), 0);
+        bytesReceived = 0;
+        int name_accepted = 0;
+        while (!name_accepted) {
+            memset(buffer, '\0', BUFFER_SIZE);
+            bytesReceived = read(client.socket, buffer, sizeof(buffer));
+            if (userDBExists(buffer, 0)) {
+                memset(temp_buffer, '\0', BUFFER_SIZE);
+                snprintf(temp_buffer, sizeof(temp_buffer), "Username already exists. Please enter a unique username:");
+                send(client.socket, temp_buffer, strlen(temp_buffer), 0);
+            } else {
+                name_accepted = 1;
+            }
+        }
+        strncpy(client.name, buffer, strlen(buffer));
+        client.name[strlen(client.name)] = '\0';
+        snprintf(query, sizeof(query), "INSERT INTO users (ip, name, balance, uploaded, downloaded) VALUES ('%.255s', '%.255s', 0, 0, 0)", client.ip, client.name);
+        executeQuery(query);
+        memset(buffer, '\0', BUFFER_SIZE);
+        snprintf(buffer, BUFFER_SIZE, "%.900s Connected, IP: %.100s\n", client.name, client.ip);
+        use_window(chat_win, printInChatWin, buffer);
+        memset(buffer, '\0', BUFFER_SIZE);
+        snprintf(buffer, BUFFER_SIZE, "Registration successful! Welcome, %.900s!\n", client.name);
+        send(client.socket, buffer, strlen(buffer), 0);
+    }
+    return client;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// printDBUsers-> 
+///////////////////////////////////////////////////////////////////////////////
+void printDBUsers() {
+    char buffer[BUFFER_SIZE];
+    snprintf(query, sizeof(query), "SELECT * FROM users");
+    res = executeQuery(query);
+    if (res == NULL) {
+        fprintf(stderr, "Error executing query: %s\n", mysql_error(conn));
+        return;
+    }
+    while ((row = mysql_fetch_row(res))) {
+        memset(buffer, '\0', BUFFER_SIZE);
+        snprintf(buffer, BUFFER_SIZE, "IP: %s, Name: %s, Balance: %s, Uploaded: %s, Downloaded: %s\n", row[0], row[1], row[2], row[3], row[4]);
+        use_window(chat_win, printInChatWin, buffer);
+    }
+    mysql_free_result(res);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// updateDBUsers-> 
+///////////////////////////////////////////////////////////////////////////////
+void updateDBUser(CLIENT client, int field, int value) {
+    char buffer[BUFFER_SIZE];
+    char temp_buffer[BUFFER_SIZE];
+    //snprintf(query, sizeof(query), "UPDATE users SET %s = %d WHERE name='%s'", field == 0 ? "balance" : field == 1 ? "uploaded" : "downloaded", value, client.name);
     executeQuery(query);
+    memset(buffer, '\0', BUFFER_SIZE);
+    snprintf(buffer, sizeof(buffer), "User %.100s updated in database", client.name);
+    use_window(chat_win, printInChatWin, buffer);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// deleteDBUsers-> 
+///////////////////////////////////////////////////////////////////////////////
+void deleteDBUser(char *command){
+    char buffer[BUFFER_SIZE];
+    char temp_buffer[BUFFER_SIZE];
+    char user_name[BUFFER_SIZE];
+    SND_RCV sr;
+    strtok(command, ":"); char *user = strtok(NULL, ":");
+    strtok(command, " "); char *option = strtok(NULL, " ");
+    if (userDBExists(user,0) || userDBExists(user,1)){
+        memset(query, '\0', QUERY_SIZE);    
+        if (strncmp(option, "name", 4) == 0){
+            snprintf(query, sizeof(query), "DELETE FROM users WHERE name='%s'", user);
+            strncpy(user_name, user, strlen(user));
+        }
+        else if (strncmp(option, "ip", 2) == 0){
+            snprintf(query, sizeof(query), "SELECT name FROM users WHERE ip='%s'", user);
+            res = executeQuery(query);
+            row = mysql_fetch_row(res);
+            strncpy(user_name, row[0], BUFFER_SIZE - 1);
+            snprintf(query, sizeof(query), "DELETE FROM users WHERE ip='%s'", user);
+        } 
+        executeQuery(query);
+        memset(buffer, '\0', BUFFER_SIZE);
+        snprintf(buffer, sizeof(buffer), "User %s deleted from database", user);
+        use_window(chat_win, printInChatWin, buffer);
+        for (CLIENT_LIST_PTR ptr = c_list; ptr != NULL; ptr = ptr->next) {
+            if (strncmp(ptr->client.name, user_name, strlen(ptr->client.name)) == 0) {
+                memset(buffer, '\0', BUFFER_SIZE);
+                snprintf(temp_buffer, sizeof(temp_buffer), "Your user has been deleted from the server database, you must register again.\n Type any command to proceed with disconnection and please log in again.");
+                send_messages(sr, ptr, buffer, temp_buffer);
+                removeClientConn(c_list, ptr->client);
+            }
+        }
+    } else {
+        memset(buffer, '\0', BUFFER_SIZE);
+        snprintf(buffer, sizeof(buffer), "User %.100s not found in database", user_name);
+        use_window(chat_win, printInChatWin, buffer);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 // printClientConn-> Print the connected clients list
 ///////////////////////////////////////////////////////////////////////////////
-CLIENT_LIST_PTR printClientConn(CLIENT_LIST_PTR c_list){
+void printClientConn(CLIENT_LIST_PTR c_list){
     char buffer[BUFFER_SIZE];
     if (c_list == NULL) {
         snprintf(buffer, sizeof(buffer), "Connected clients list: NULL");
         use_window(chat_win, printInChatWin, buffer);
-        return c_list;
     } else {
-        for (CLIENT_LIST_PTR ptr = c_list; ptr != NULL; ptr = ptr->next){
+        memset(buffer, '\0', BUFFER_SIZE);
+        snprintf(buffer, sizeof(buffer), "Connected clients list:");
+        for (CLIENT_LIST_PTR ptr = c_list; ptr != NULL; ptr = ptr->next){    
+            use_window(chat_win, printInChatWin, buffer);
             memset(buffer, '\0', BUFFER_SIZE);
             snprintf(buffer, sizeof(buffer), "Client: %.100s, IP: %.100s, Client_socket: %d", ptr->client.name, ptr->client.ip, ptr->client.socket);
             use_window(chat_win, printInChatWin, buffer);
         }
     }
-    return c_list;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -72,15 +196,11 @@ CLIENT_LIST_PTR addClientConn(CLIENT_LIST_PTR c_list, CLIENT client){
     new_node->client = client;
     new_node->next = NULL;
     if (c_list == NULL) {
-        snprintf(buffer, sizeof(buffer), "1º Added client");
-        use_window(chat_win, printInChatWin, buffer);
         return new_node;
     } else {
         for (CLIENT_LIST_PTR ptr = c_list; ptr != NULL; ptr = ptr->next){
             if (ptr->next == NULL) {
                 ptr->next = new_node;
-                snprintf(buffer, sizeof(buffer), "Added client no first");
-                use_window(chat_win, printInChatWin, buffer);
                 return ptr;
             }
         }
@@ -112,7 +232,6 @@ CLIENT_LIST_PTR removeClientConn(CLIENT_LIST_PTR c_list, CLIENT client) {
         prev = current;
         current = current->next;
     }
-    printClientConn(c_list);
     return c_list;
 }
 
@@ -224,44 +343,71 @@ int clearInputWin(WINDOW *win, void *arg) {
 ///////////////////////////////////////////////////////////////////////////////
 // sendGif-> Sends a .gif file to a client
 ///////////////////////////////////////////////////////////////////////////////
-ssize_t sendGif(char *file_path, CLIENT client) {
-    char buffer[BUFFER_SIZE];
-    memset(buffer, '\0', BUFFER_SIZE);
-    size_t bytes_read, total_bytes_sent = 0;
-    FILE *file = fopen(file_path, "rb");
+void sendGif(char *buffer, CLIENT client) {
+    size_t bytes_read, bytes_send, total_bytes_sent = 0;
+    char file_path[BUFFER_SIZE];
+    char temp_buffer[BUFFER_SIZE];
 
-    if (!file) {
-        snprintf(buffer, sizeof(buffer), "Error opening file");
-        use_window(chat_win, printInChatWin, buffer);
-        return total_bytes_sent;
-    }
-    while ((bytes_read = fread(buffer, 1, sizeof(buffer), file)) > 0) {
-        ssize_t bytes_sent = send(client.socket, buffer, bytes_read, 0);
-        if (bytes_sent < 0) {
-            memset(buffer, '\0', BUFFER_SIZE);
-            snprintf(buffer, sizeof(buffer), "Error sending file");
+    snprintf(file_path, sizeof(file_path), "./media/gifs/%s.gif", buffer + 4);
+
+    struct stat file_info;
+    if (!stat(file_path, &file_info)) {
+        memset(temp_buffer, '\0', sizeof(temp_buffer));
+        snprintf(temp_buffer, BUFFER_SIZE, "%s:%lu", buffer, file_info.st_size);
+        send(client.socket, temp_buffer, strlen(temp_buffer), 0);
+
+        FILE *file = fopen(file_path, "rb");
+        if (!file) {
+            snprintf(buffer, BUFFER_SIZE, "Error opening file");
             use_window(chat_win, printInChatWin, buffer);
-            break;
         }
-        total_bytes_sent += bytes_sent;
-    }
 
-    fclose(file);
-    return total_bytes_sent;
+        while ((bytes_read = fread(buffer, 1, sizeof(buffer), file)) > 0) {
+            ssize_t bytes_sent = send(client.socket, buffer, bytes_read, 0);
+            if (bytes_sent < 0) {
+                memset(buffer, '\0', BUFFER_SIZE);
+                snprintf(buffer, BUFFER_SIZE, "Error sending file");
+                use_window(chat_win, printInChatWin, buffer);
+                break;
+            }
+            total_bytes_sent += bytes_sent;
+        }
+        if (bytes_send > 0) {
+            memset(temp_buffer, '\0', BUFFER_SIZE);
+            snprintf(temp_buffer, BUFFER_SIZE, "%s sent. Total bytes sent: %zu", buffer, bytes_send);
+            use_window(chat_win, printInChatWin, temp_buffer);
+        } else {
+            memset(temp_buffer, '\0', BUFFER_SIZE);
+            snprintf(temp_buffer, BUFFER_SIZE, "Error: Failed to send gif.");
+            use_window(chat_win, printInChatWin, temp_buffer);
+        }
+        fclose(file);
+    } else {
+        memset(temp_buffer, '\0', BUFFER_SIZE);
+        snprintf(temp_buffer, BUFFER_SIZE, "Error: Gif not found.");
+        use_window(chat_win, printInChatWin, temp_buffer);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 // receiveGif-> Receives a .gif file
 ///////////////////////////////////////////////////////////////////////////////
-ssize_t receiveGif(int gif_size, char *file_path, CLIENT client) {
-    FILE *file = fopen(file_path, "wb");
-    char buffer[BUFFER_SIZE];
+void receiveGif(char *buffer, CLIENT client) {
     ssize_t bytes_received, total_bytes_received = 0;
+    char temp_buffer[BUFFER_SIZE];
+    char gif_name[BUFFER_SIZE];
+    char file_path[BUFFER_SIZE];
+    strtok(buffer, ":"); char *value = strtok(NULL, ":");
+    strtok(buffer, " "); char *name = strtok(NULL, " ");
+    strncpy(gif_name, name, strlen(name));
+    int gif_size = atoi(value);
+    snprintf(file_path, sizeof(file_path), "./media/gifs/%s.gif", name);
+    FILE *file = fopen(file_path, "wb");
 
     if (!file) {
-        snprintf(buffer, sizeof(buffer), "Error creating file");
+        memset(temp_buffer, '\0', BUFFER_SIZE);
+        snprintf(temp_buffer, BUFFER_SIZE, "Error creating file");
         use_window(chat_win, printInChatWin, buffer);
-        return total_bytes_received;
     }    
 
     while (gif_size > total_bytes_received) {
@@ -269,15 +415,18 @@ ssize_t receiveGif(int gif_size, char *file_path, CLIENT client) {
         bytes_received = recv(client.socket, buffer, sizeof(buffer), 0);
         fwrite(buffer, 1, bytes_received, file);
         if (bytes_received < 0) {
-            memset(buffer, '\0', BUFFER_SIZE);
-            snprintf(buffer, sizeof(buffer), "Error receiving file");
+            memset(temp_buffer, '\0', BUFFER_SIZE);
+            snprintf(temp_buffer, BUFFER_SIZE, "Error receiving file");
             use_window(chat_win, printInChatWin, buffer);
             break;
         }
         total_bytes_received += bytes_received;
     }
+
     fclose(file);
-    return total_bytes_received;
+    memset(temp_buffer, '\0', BUFFER_SIZE);
+    snprintf(temp_buffer, BUFFER_SIZE, "%.100s: gif %.100s received. Total bytes transmited: %zu", client.name, gif_name, total_bytes_received);
+    use_window(chat_win, printInChatWin, temp_buffer);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -285,77 +434,27 @@ ssize_t receiveGif(int gif_size, char *file_path, CLIENT client) {
 ///////////////////////////////////////////////////////////////////////////////
 void *handleClient(void *arg) {
 
-    char buffer[BUFFER_SIZE];
-    char temp_buffer[BUFFER_SIZE*3];
+    char buffer[BUFFER_SIZE], temp_buffer[BUFFER_SIZE];
     int bytesReceived;
-    char name[BUFFER_SIZE];
     CLIENT client = *(CLIENT *)arg;
-    if (userExists(client)) {
-        snprintf(query, sizeof(query), "SELECT name FROM users WHERE ip='%s'", client.ip);
-        res = executeQuery(query);
-        row = mysql_fetch_row(res);
-        strncpy(client.name, (const char *)row[0], sizeof(buffer) - 1);
-        client.name[sizeof(client.name) - 1] = '\0';
-        memset(buffer, '\0', BUFFER_SIZE);
-        snprintf(buffer, sizeof(buffer) - 1, "Welcome back, %.900s!", client.name);
-        buffer[sizeof(buffer) - 1] = '\0';
-        send(client.socket, buffer, strlen(buffer), 0);
-        memset(buffer, '\0', BUFFER_SIZE);
-        snprintf(buffer, BUFFER_SIZE, "%.900s Connected, IP: %.100s\n", client.name, client.ip);
-        use_window(chat_win, printInChatWin, buffer);
-    }
-    else {
-        send(client.socket, "You are not registered. Please enter a unique username:\n", 56, 0);
-        memset(buffer, '\0', BUFFER_SIZE);
-        bytesReceived = 0;
-        while (bytesReceived == 0) {
-            bytesReceived = read(client.socket, buffer, sizeof(buffer));
-        }
-        strncpy(client.name, buffer, sizeof(buffer) - 1);
-        client.name[sizeof(client.name) - 1] = '\0';
-        registerUser(client);
-        memset(buffer, '\0', BUFFER_SIZE);
-        snprintf(buffer, sizeof(buffer), "%.900s Connected, IP: %.100s\n", client.name, client.ip);
-        use_window(chat_win, printInChatWin, buffer);
-        memset(buffer, '\0', BUFFER_SIZE);
-        snprintf(buffer, sizeof(buffer), "Registration successful! Welcome, %.900s!\n", client.name);
-        send(client.socket, buffer, strlen(buffer), 0);
-    }
+    client = registerDBUser(client); 
+    c_list = addClientConn(c_list, client);
 
     // Handle further communication with the client
     while (1)
     {   
-        memset(temp_buffer, '\0', BUFFER_SIZE*3);
+        memset(temp_buffer, '\0', BUFFER_SIZE);
         memset(buffer, '\0', BUFFER_SIZE);
         
         bytesReceived = read(client.socket, buffer, BUFFER_SIZE);
-        snprintf(temp_buffer, sizeof(temp_buffer), "%s: %s", client.name,buffer);
+        snprintf(temp_buffer, sizeof(temp_buffer), "%.100s: %.900s", client.name,buffer);
 
         if (bytesReceived <= 0) {
             snprintf(buffer, BUFFER_SIZE, "%.900s disconnected", client.name);
             use_window(chat_win, printInChatWin, buffer);
-
             break;
         }
-
-        if (strncmp(buffer, "gif", 3) == 0){
-            int gif_size = 0;
-            char file_path[BUFFER_SIZE];
-            char *colon_pos = strchr(buffer, ':');
-            if (colon_pos != NULL) {
-                size_t gif_name_length = colon_pos - (buffer + 4);
-                char gif_name[gif_name_length + 1];
-                strncpy(gif_name, buffer + 4, gif_name_length);
-                gif_name[gif_name_length] = '\0';
-                strncpy(name, gif_name, sizeof(name));
-                char *value = colon_pos + 1;
-                gif_size = atoi(value);
-            }
-            snprintf(file_path, sizeof(file_path), "./media/gifs/%.100s.gif", name);
-            size_t bytes_received = receiveGif(gif_size, file_path, client_i);
-            snprintf(temp_buffer, sizeof(temp_buffer), "gif %s received. Total bytes transmited: %zu", name, bytes_received);
-            use_window(chat_win, printInChatWin, temp_buffer);
-        }
+        if (strncmp(buffer, "gif", 3) == 0) receiveGif(buffer, client);   
         else use_window(chat_win, printInChatWin, temp_buffer);
     }
 
@@ -369,31 +468,8 @@ void *handleClient(void *arg) {
 ///////////////////////////////////////////////////////////////////////////////
 void send_messages(SND_RCV sr, CLIENT_LIST_PTR ptr, char *buffer, char *temp_buffer)
 {
-    if (strncmp(buffer, "gif", 3) == 0) {
-        char file_path[BUFFER_SIZE];
-        snprintf(file_path, sizeof(file_path), "./media/gifs/%s.gif", buffer + 4);
-        struct stat file_info;
-        if (!stat(file_path, &file_info)) {
-            memset(temp_buffer, '\0', sizeof(temp_buffer));
-            snprintf(temp_buffer, BUFFER_SIZE, "%s:%lu", buffer, file_info.st_size);
-            send(ptr->client.socket, temp_buffer, strlen(temp_buffer), 0);
-            sleep(1);
-            size_t bytes_send = sendGif(file_path, ptr->client);
-            if (bytes_send > 0) {
-                memset(temp_buffer, '\0', BUFFER_SIZE*2);
-                snprintf(temp_buffer, BUFFER_SIZE*2, "%s sent. Total bytes sent: %zu", buffer, bytes_send);
-                use_window(chat_win, printInChatWin, temp_buffer);
-            } else {
-                memset(temp_buffer, '\0', BUFFER_SIZE);
-                snprintf(temp_buffer, BUFFER_SIZE, "Error: Failed to send gif.");
-                use_window(chat_win, printInChatWin, temp_buffer);
-            }
-        } else {
-            memset(temp_buffer, '\0', BUFFER_SIZE);
-            snprintf(temp_buffer, BUFFER_SIZE, "Error: Gif not found.");
-            use_window(chat_win, printInChatWin, temp_buffer);
-        }
-    } else {
+    if (strncmp(buffer, "gif", 3) == 0) sendGif(buffer, ptr->client);
+    else {
         use_window(chat_win, printInChatWin, temp_buffer);
         send(ptr->client.socket, temp_buffer, strlen(temp_buffer), 0);
     }
@@ -405,40 +481,41 @@ void send_messages(SND_RCV sr, CLIENT_LIST_PTR ptr, char *buffer, char *temp_buf
 void *inputWindowManagement(void *arg)
 {
     char buffer[BUFFER_SEND_SIZE];
-    char temp_buffer[BUFFER_SIZE*2];
-
+    char temp_buffer[BUFFER_SIZE];
     SND_RCV sr;
-    strncpy(sr.sender_name, "Server", BUFFER_SIZE);
-    sr.sender_name[sizeof(sr.sender_name - 1)] = '\0';
-    strncpy(sr.receiver_name, "Broadcast", BUFFER_SIZE);
-    sr.receiver_name[sizeof(sr.receiver_name) - 1] = '\0';
 
     while (1)
-    {    
+    {   
         memset(buffer, '\0', BUFFER_SEND_SIZE);
-        memset(temp_buffer, '\0', BUFFER_SIZE*2);
+        memset(temp_buffer, '\0', BUFFER_SIZE);
         use_window(input_win, clearInputWin, 0);
         wgetnstr(input_win, buffer, BUFFER_SEND_SIZE - sizeof("Message: "));
-        snprintf(temp_buffer, sizeof(temp_buffer), "%s: %s", sr.sender_name, buffer);
+        snprintf(temp_buffer, sizeof(temp_buffer), "Server: %s", buffer);
 
-        if (strncmp(buffer, "close", 5) == 0) shutdownServer(c_list);
-        if (strncmp(buffer, "clear", 5) == 0) {use_window(chat_win, clearChatWin, 0); continue;}
-
-        if (c_list == NULL){
-            memset(buffer, '\0', BUFFER_SEND_SIZE);
-            snprintf(buffer, sizeof(buffer), "Error: No clients connected.");
-            use_window(chat_win, printInChatWin, buffer);
-        } else {
-            if (strncmp(sr.receiver_name, "Broadcast", sizeof(sr.receiver_name - 1)) == 0) {
-                for (CLIENT_LIST_PTR ptr = c_list; ptr != NULL; ptr = ptr->next) {
+        if (strncmp(buffer, ".close", 6) == 0) shutdownServer(c_list);
+        else if (strncmp(buffer, ".clear", 6) == 0) {use_window(chat_win, clearChatWin, 0);}
+        else if (strncmp(buffer, ".listc", 6) == 0) printClientConn(c_list);
+        else if (strncmp(buffer, ".listdb", 7) == 0) printDBUsers();
+        else if (strncmp(buffer, ".deletedb", 9) == 0) deleteDBUser(buffer);
+        else if (strncmp(buffer, ".help", 5) == 0) {
+            snprintf(temp_buffer, sizeof(temp_buffer), "Commands: @close, @clear, @list");
+            use_window(chat_win, printInChatWin, temp_buffer);
+        }
+        else if (strncmp(buffer, "@B:", 3) == 0) {
+            char *token = strtok(buffer, ":");
+            char *message = strtok(NULL, ":");
+            snprintf(temp_buffer, sizeof(temp_buffer), "Server: %s", message);
+            for (CLIENT_LIST_PTR ptr = c_list; ptr != NULL; ptr = ptr->next) {
+                send_messages(sr, ptr, buffer, temp_buffer);
+            }
+        } else if (strncmp(buffer, "@", 1) == 0) {
+            char *token = strtok(buffer + 1, ":");
+            char *message = strtok(NULL, ":");
+            snprintf(temp_buffer, sizeof(temp_buffer), "Server: %s", message);
+            for (CLIENT_LIST_PTR ptr = c_list; ptr != NULL; ptr = ptr->next) {
+                if (strncmp(ptr->client.name, token, strlen(token)) == 0) {
                     send_messages(sr, ptr, buffer, temp_buffer);
-                }
-            } else {
-                for (CLIENT_LIST_PTR ptr = c_list; ptr != NULL; ptr = ptr->next) {
-                    if (strncmp(ptr->client.name, receiver_name, strlen(receiver_name)) == 0) {
-                        send_messages(sr, ptr, buffer, temp_buffer);
-                        break;
-                    }
+                    break;
                 }
             }
         }
@@ -579,12 +656,7 @@ int main()
         client = accept(server, (struct sockaddr *)&client_addr, &addr_size);
         client_i.socket = client;
         inet_ntop(AF_INET, &client_addr.sin_addr, client_i.ip, INET_ADDRSTRLEN);
-        client_i.name[0] = '\0';
         if (client >= 0) {
-            //pthread_mutex_lock(&lock);
-            c_list = addClientConn(c_list, client_i);
-            printClientConn(c_list);
-            //pthread_mutex_unlock(&lock);
             pthread_t client_thread;
             CLIENT_PTR client_socket = (CLIENT_PTR)malloc(sizeof(CLIENT));
             *client_socket = client_i;
