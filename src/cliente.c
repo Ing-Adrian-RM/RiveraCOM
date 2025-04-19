@@ -98,7 +98,7 @@ void sendGif(char *buffer, CLIENT client) {
     struct stat file_info;
     if (!stat(file_path, &file_info)) {
         memset(temp_buffer, '\0', sizeof(temp_buffer));
-        snprintf(temp_buffer, BUFFER_SIZE, "%s:%lu", buffer, file_info.st_size);
+        snprintf(temp_buffer, BUFFER_SIZE, "%s+%lu", buffer, file_info.st_size);
         send(client.socket, temp_buffer, strlen(temp_buffer), 0);
 
         FILE *file = fopen(file_path, "rb");
@@ -145,7 +145,7 @@ void receiveGif(char *buffer, CLIENT client) {
     char temp_buffer[BUFFER_SIZE];
     char gif_name[BUFFER_SIZE];
     char file_path[BUFFER_SIZE];
-    strtok(buffer, ":"); char *value = strtok(NULL, ":");
+    strtok(buffer, "+"); char *value = strtok(NULL, "+");
     strtok(buffer, " "); char *name = strtok(NULL, " ");
     snprintf(gif_name, strlen(name) + 1, "%s", name);
     int gif_size = atoi(value);
@@ -183,8 +183,9 @@ void *receive_messages() {
         char buffer[BUFFER_SIZE];
         memset(buffer, '\0', BUFFER_SIZE);
         int bytes_read = read(client, buffer, BUFFER_SIZE);
-        strtok(buffer, ":"); char *message = strtok(NULL, ":");
-        if (strncmp(message, " gif", 4) == 0) receiveGif(buffer, client_i);
+        use_window(chat_win, printInChatWin, buffer);
+        strtok(buffer, " "); char *message = strtok(NULL, " ");
+        if (strncmp(message, " gif", 4) == 0) receiveGif(message, client_i);
         use_window(chat_win, printInChatWin, buffer);
         if (bytes_read <= 0) {
             use_window(chat_win, clearChatWin, buffer);

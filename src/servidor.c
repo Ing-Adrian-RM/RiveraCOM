@@ -134,7 +134,7 @@ void printDBUsers() {
 ///////////////////////////////////////////////////////////////////////////////
 // updateDBUsers-> Update a user data in the database
 ///////////////////////////////////////////////////////////////////////////////
-char *updateDBUser(char *command) {
+char *updateDBUser(char *command, char *output) {
     char buffer[BUFFER_SIZE];
     char temp_buffer[BUFFER_SIZE];
     char user_name[BUFFER_SIZE];
@@ -150,9 +150,9 @@ char *updateDBUser(char *command) {
         memset(query, '\0', QUERY_SIZE);    
         if (strncmp(variable, "name", 4) == 0) {
             if (userDBExists(value, 0)) {
-                memset(command, '\0', BUFFER_SIZE);
-                snprintf(command, BUFFER_SIZE, "Username already exists. Request failed.");
-                return command;
+                memset(output, '\0', BUFFER_SIZE);
+                snprintf(output, BUFFER_SIZE, "Username already exists. Request failed.");
+                return output;
             }
             else snprintf(query, sizeof(query), "UPDATE users SET name='%s' WHERE %s='%s'", value, switcher, identificator);
         }
@@ -164,19 +164,19 @@ char *updateDBUser(char *command) {
 
         memset(buffer, '\0', BUFFER_SIZE);
         if (result >= 0){
-            memset(command, '\0', BUFFER_SIZE);
-            snprintf(command, BUFFER_SIZE, "%s data of user %s updated in database.", variable, identificator);
-            return command;
+            memset(output, '\0', BUFFER_SIZE);
+            snprintf(output, BUFFER_SIZE, "%s data of user %s updated in database.", variable, identificator);
+            return output;
         } 
         else {
-            memset(command, '\0', BUFFER_SIZE);
-            snprintf(command, BUFFER_SIZE, "Error updating database.");
-            return command;
+            memset(output, '\0', BUFFER_SIZE);
+            snprintf(output, BUFFER_SIZE, "Error updating database.");
+            return output;
         }    
     } else {
-        memset(command, '\0', BUFFER_SIZE);
-        snprintf(command, BUFFER_SIZE, "User %.100s not found in database", user_name);
-        return command;
+        memset(output, '\0', BUFFER_SIZE);
+        snprintf(output, BUFFER_SIZE, "User %.100s not found in database", user_name);
+        return output;
     }
 }
 
@@ -317,15 +317,19 @@ void disconnectAllClients(CLIENT_LIST_PTR c_list) {
 ///////////////////////////////////////////////////////////////////////////////
 // linkedToFunction()-> Check if a user to link is available 
 ///////////////////////////////////////////////////////////////////////////////
-int linkedToFunction(char *command) {
+char *linkedToFunction(char *command, char *output) {
     strtok(command, " "); char *user_name = strtok(NULL, " ");
-    if (strncmp("Broadcast", user_name, strlen(user_name)) == 0) return 1;
+    if (strncmp("Broadcast", user_name, strlen(user_name)) == 0) {
+        snprintf(output, BUFFER_SIZE, "Broadcast");
+        return output;
+    }
     for (CLIENT_LIST_PTR ptr = c_list; ptr != NULL; ptr = ptr->next) {
         if (strncmp(ptr->client.name, user_name, strlen(user_name)) == 0) {
-            return 1;
+            snprintf(output, BUFFER_SIZE, "%s", user_name);
+            return output;
         }
     }
-    return 0;
+    return NULL;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -443,7 +447,7 @@ void sendGif(char *buffer, CLIENT client) {
     struct stat file_info;
     if (!stat(file_path, &file_info)) {
         memset(temp_buffer, '\0', sizeof(temp_buffer));
-        snprintf(temp_buffer, BUFFER_SIZE, "%s:%lu", buffer, file_info.st_size);
+        snprintf(temp_buffer, BUFFER_SIZE, "%s+%lu", buffer, file_info.st_size);
         send(client.socket, temp_buffer, strlen(temp_buffer), 0);
 
         FILE *file = fopen(file_path, "rb");
@@ -490,7 +494,7 @@ void receiveGif(char *buffer, CLIENT client) {
     char temp_buffer[BUFFER_SIZE];
     char gif_name[BUFFER_SIZE];
     char file_path[BUFFER_SIZE];
-    strtok(buffer, ":"); char *value = strtok(NULL, ":");
+    strtok(buffer, "+"); char *value = strtok(NULL, "+");
     strtok(buffer, " "); char *name = strtok(NULL, " ");
     snprintf(gif_name, strlen(name) + 1, "%s", name);
     int gif_size = atoi(value);
@@ -526,7 +530,9 @@ void receiveGif(char *buffer, CLIENT client) {
 ///////////////////////////////////////////////////////////////////////////////
 void *handleClient(void *arg) {
 
-    char buffer[BUFFER_SIZE], temp_buffer[BUFFER_SIZE];
+    char buffer[BUFFER_SIZE];
+    char temp_buffer[BUFFER_SIZE];
+    char output[BUFFER_SIZE];
     int bytesReceived;
     CLIENT client = *(CLIENT *)arg;
     client = registerDBUser(client); 
@@ -537,6 +543,7 @@ void *handleClient(void *arg) {
     {   
         memset(temp_buffer, '\0', BUFFER_SIZE);
         memset(buffer, '\0', BUFFER_SIZE);
+        memset(output, '\0', BUFFER_SIZE);
         
         bytesReceived = read(client.socket, buffer, BUFFER_SIZE);
         snprintf(temp_buffer, BUFFER_SIZE, "%.100s: %.900s", client.name,buffer);
@@ -547,7 +554,7 @@ void *handleClient(void *arg) {
             break;
         }
         if (strncmp(buffer, ".link", 5) == 0) {
-            if (linkedToFunction(buffer)) {
+            if (linkedToFunction(buffer,output) != NULL) {
                 memset(buffer, '\0', sizeof(buffer));
                 snprintf(buffer, BUFFER_SIZE, "YES");
                 send(client.socket, buffer, strlen(buffer), 0);
@@ -565,13 +572,13 @@ void *handleClient(void *arg) {
             strtok(buffer, " "); char *token = strtok(NULL, " ");
             memset(temp_buffer, '\0', sizeof(temp_buffer));
             snprintf(temp_buffer, BUFFER_SIZE, ".updatedb name:%.100s*name+%s", client.name, token);
-            send(client.socket, updateDBUser(temp_buffer), strlen(temp_buffer), 0);
+            send(client.socket, updateDBUser(temp_buffer,output), strlen(temp_buffer), 0);
         }
         else if (strncmp(buffer, ".recharge", 9) == 0) {
             strtok(buffer, " "); char *token = strtok(NULL, " ");
             memset(temp_buffer, '\0', sizeof(temp_buffer));
             snprintf(temp_buffer, BUFFER_SIZE, ".updatedb name:%.100s*balance+%s", client.name, token);
-            send(client.socket, updateDBUser(temp_buffer), strlen(temp_buffer), 0);
+            send(client.socket, updateDBUser(temp_buffer,output), strlen(temp_buffer), 0);
         }
         else if (strncmp(buffer, ".userinfo", 6) == 0) {
             snprintf(query, sizeof(query), "SELECT * FROM users WHERE name='%.100s'", client.name);
@@ -628,10 +635,7 @@ void *handleClient(void *arg) {
 void send_messages(SND_RCV sr, CLIENT_LIST_PTR ptr, char *buffer, char *temp_buffer)
 {
     if (strncmp(buffer, "gif", 3) == 0) sendGif(buffer, ptr->client);
-    else {
-        use_window(chat_win, printInChatWin, temp_buffer);
-        send(ptr->client.socket, temp_buffer, strlen(temp_buffer), 0);
-    }
+    else send(ptr->client.socket, temp_buffer, strlen(temp_buffer), 0);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -650,15 +654,18 @@ void *inputWindowManagement(void *arg)
 {
     char buffer[BUFFER_SIZE];
     char temp_buffer[BUFFER_SIZE];
+    char output[BUFFER_SIZE];
     SND_RCV sr;
 
     while (1)
     {   
         memset(buffer, '\0', BUFFER_SIZE);
         memset(temp_buffer, '\0', BUFFER_SIZE);
+        memset(output, '\0', BUFFER_SIZE);
         use_window(input_win, clearInputWin, 0);
         wgetnstr(input_win, buffer, BUFFER_SEND_SIZE);
         snprintf(temp_buffer, BUFFER_SIZE, "Server: %.900s", buffer);
+        use_window(chat_win, printInChatWin, temp_buffer);
 
         if (strncmp(buffer, ".close", 6) == 0) shutdownServer(c_list);
         else if (strncmp(buffer, ".clear", 6) == 0) {use_window(chat_win, clearChatWin, 0); use_window(input_win, clearInputWin, 0);}
@@ -668,12 +675,11 @@ void *inputWindowManagement(void *arg)
         }
         else if (strncmp(buffer, ".listdb", 7) == 0) printDBUsers();
         else if (strncmp(buffer, ".deletedb", 9) == 0) deleteDBUser(buffer);
-        else if (strncmp(buffer, ".updatedb", 9) == 0) use_window(chat_win, printInChatWin, updateDBUser(buffer));
+        else if (strncmp(buffer, ".updatedb", 9) == 0) use_window(chat_win, printInChatWin, updateDBUser(buffer,output));
         else if (strncmp(buffer, ".link", 5) == 0) {
-            if (linkedToFunction(buffer)) {
-                strtok(buffer, " "); char *user_name = strtok(NULL, " ");
+            if (linkedToFunction(buffer,output) != NULL) {
                 memset(linkedTo, '\0', 100);
-                snprintf(linkedTo, 100, "%s", user_name);
+                snprintf(linkedTo, 100, "%.99s", output);
             } else {
                 snprintf(temp_buffer, BUFFER_SIZE, "User not available.");
                 use_window(chat_win, printInChatWin, temp_buffer);
@@ -687,12 +693,11 @@ void *inputWindowManagement(void *arg)
             memset(temp_buffer, '\0', BUFFER_SIZE);
             use_window(chat_win, printInChatWin, help(temp_buffer));
         }
-        else if (strncmp(linkedTo, "Server", 6) == 0) use_window(chat_win, printInChatWin, temp_buffer);
         else if (strncmp(linkedTo, "Broadcast", 9) == 0) {
             for (CLIENT_LIST_PTR ptr = c_list; ptr != NULL; ptr = ptr->next) {
                 send_messages(sr, ptr, buffer, temp_buffer);
             }
-        } else {
+        } else if (strncmp(linkedTo, "Server", 6) != 0) {
             for (CLIENT_LIST_PTR ptr = c_list; ptr != NULL; ptr = ptr->next) {
                 if (strncmp(ptr->client.name, linkedTo, strlen(linkedTo)) == 0) send_messages(sr, ptr, buffer, temp_buffer);
                 else {
