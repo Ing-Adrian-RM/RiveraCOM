@@ -101,6 +101,7 @@ CLIENT registerDBUser(CLIENT client) {
             memset(buffer, '\0', BUFFER_SIZE);
             bytesReceived = read(client.socket, buffer, sizeof(buffer));
             strtok(buffer, ":"); char *token = strtok(NULL, ":");
+            strncpy(client.name, token, strlen(token));
             if (userDBExists(token, 0) || strlen(token) < 2 || strlen(token) > 20 || strpbrk(token, " ")) {
                 memset(temp_buffer, '\0', BUFFER_SIZE);
                 snprintf(temp_buffer, sizeof(temp_buffer), "Invalid Username.\nPlease enter a unique username between 2 to 20 characters without spaces:");
@@ -109,7 +110,6 @@ CLIENT registerDBUser(CLIENT client) {
                 name_accepted = 1;
             }
         }
-        strncpy(client.name, buffer, strlen(buffer));
         client.name[strlen(client.name)] = '\0';
         snprintf(query, sizeof(query), "INSERT INTO users (ip, name, balance, uploaded, downloaded) VALUES ('%.255s', '%.255s', 0, 0, 0)", client.ip, client.name);
         executeDataQuery(query);
@@ -587,10 +587,9 @@ void *handleClient(void *arg) {
             send(client.socket, updateDBUser(temp_buffer,output), strlen(output), 0);
         }
         else if (strncmp(buffer, ".deleteuser", 9) == 0) {
-            strtok(buffer, " "); char *token = strtok(NULL, " ");
             memset(temp_buffer, '\0', sizeof(temp_buffer));
             snprintf(temp_buffer, BUFFER_SIZE, ".deletedb name:%.100s", client.name);
-            send(client.socket, deleteDBUser(temp_buffer,output), strlen(output), 0);
+            deleteDBUser(temp_buffer,output);
         }
         else if (strncmp(buffer, ".userinfo", 6) == 0) {
             snprintf(query, sizeof(query), "SELECT * FROM users WHERE name='%.100s'", client.name);
