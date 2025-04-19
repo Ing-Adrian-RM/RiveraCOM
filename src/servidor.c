@@ -100,6 +100,7 @@ CLIENT registerDBUser(CLIENT client) {
         while (!name_accepted) {
             memset(buffer, '\0', BUFFER_SIZE);
             bytesReceived = read(client.socket, buffer, sizeof(buffer));
+            if (bytesReceived <= 0) {client.socket = -1; return client;}
             strtok(buffer, ":"); char *token = strtok(NULL, ":");
             strncpy(client.name, token, strlen(token));
             if (userDBExists(token, 0) || strlen(token) < 2 || strlen(token) > 20 || strpbrk(token, " ")) {
@@ -214,23 +215,11 @@ char *deleteDBUser(char *command, char *output) {
         unsigned long result = executeEnumQuery(query);
         if (result > 0){
             memset(output, '\0', BUFFER_SIZE);
-            snprintf(output, BUFFER_SIZE, "User %s deleted from database", user);
-            for (CLIENT_LIST_PTR ptr = c_list; ptr != NULL; ptr = ptr->next) {
-                if (strncmp(ptr->client.name, user_name, strlen(user_name)) == 0) {
-                    memset(temp_buffer, '\0', BUFFER_SIZE);
-                    snprintf(temp_buffer, BUFFER_SIZE, "Your user has been deleted from the server database.\nPlease reconnect and register again.\n");
-                    send(ptr->client.socket, output, strlen(output), 0);
-                }
-            }
+            snprintf(output, BUFFER_SIZE, "User deleted from database");
             return output;
         } else {
             memset(output, '\0', BUFFER_SIZE);
             snprintf(output, BUFFER_SIZE, "Error deleting user from database");
-            for (CLIENT_LIST_PTR ptr = c_list; ptr != NULL; ptr = ptr->next) {
-                if (strncmp(ptr->client.name, user_name, strlen(user_name)) == 0) {
-                    send(ptr->client.socket, output, strlen(output), 0);
-                }
-            }
             return output;
         }
     } else {
@@ -541,7 +530,14 @@ void *handleClient(void *arg) {
     char output[BUFFER_SIZE];
     int bytesReceived;
     CLIENT client = *(CLIENT *)arg;
-    client = registerDBUser(client); 
+    client = registerDBUser(client);
+    if (client.socket < 0) {
+        snprintf(buffer, BUFFER_SIZE, "Error: Failed to register user.");
+        use_window(chat_win, printInChatWin, buffer);
+        close(client.socket);
+        free(arg);
+        return NULL;
+    } 
     c_list = addClientConn(c_list, client);
 
     // Handle further communication with the client
@@ -589,7 +585,7 @@ void *handleClient(void *arg) {
         else if (strncmp(buffer, ".deleteuser", 9) == 0) {
             memset(temp_buffer, '\0', sizeof(temp_buffer));
             snprintf(temp_buffer, BUFFER_SIZE, ".deletedb name:%.100s", client.name);
-            deleteDBUser(temp_buffer,output);
+            send(client.socket, deleteDBUser(temp_buffer,output), strlen(output), 0);
         }
         else if (strncmp(buffer, ".userinfo", 6) == 0) {
             snprintf(query, sizeof(query), "SELECT * FROM users WHERE name='%.100s'", client.name);

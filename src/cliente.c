@@ -404,7 +404,7 @@ int main() {
             memset(temp_buffer, '\0', sizeof(temp_buffer));
             int bytes_read = read(client, temp_buffer, BUFFER_SIZE);
             use_window(chat_win, printInChatWin, temp_buffer);
-            if (strncmp(temp_buffer, "Your user has been deleted", 26) == 0){
+            if (strncmp(temp_buffer, "User deleted from database", 26) == 0){
                 memset(temp_buffer, '\0', BUFFER_SIZE);
                 snprintf(temp_buffer, BUFFER_SIZE, "Closing in 5 seconds...\n");
                 use_window(chat_win, printInChatWin, buffer);
