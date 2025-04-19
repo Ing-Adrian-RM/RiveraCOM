@@ -138,7 +138,6 @@ char *updateDBUser(char *command, char *output) {
     char buffer[BUFFER_SIZE];
     char temp_buffer[BUFFER_SIZE];
     char user_name[BUFFER_SIZE];
-    SND_RCV sr;
     strtok(command, "+"); char *value = strtok(NULL, "+");
     strtok(command, "*"); char *variable = strtok(NULL, "*");
     strtok(command, ":"); char *identificator = strtok(NULL, ":");
@@ -183,11 +182,10 @@ char *updateDBUser(char *command, char *output) {
 ///////////////////////////////////////////////////////////////////////////////
 // deleteDBUsers-> Delete a user from the database
 ///////////////////////////////////////////////////////////////////////////////
-void deleteDBUser(char *command){
+char *deleteDBUser(char *command, char *output) {
     char buffer[BUFFER_SIZE];
     char temp_buffer[BUFFER_SIZE];
     char user_name[BUFFER_SIZE];
-    SND_RCV sr;
     strtok(command, ":"); char *user = strtok(NULL, ":");
     strtok(command, " "); char *option = strtok(NULL, " ");
     if (userDBExists(user,0) || userDBExists(user,1)){
@@ -206,31 +204,18 @@ void deleteDBUser(char *command){
         unsigned long result = executeEnumQuery(query);
         memset(buffer, '\0', BUFFER_SIZE);
         if (result > 0){
-            snprintf(buffer, sizeof(buffer), "User %s deleted from database", user);
-            use_window(chat_win, printInChatWin, buffer);
-            for (CLIENT_LIST_PTR ptr = c_list; ptr != NULL; ptr = ptr->next) {
-                if (strncmp(ptr->client.name, user_name, strlen(ptr->client.name)) == 0) {
-                    memset(buffer, '\0', BUFFER_SIZE);
-                    snprintf(temp_buffer, sizeof(temp_buffer), "Your user has been deleted from the server database, you must register again.\n Type any command to proceed with disconnection and please log in again.");
-                    send_messages(sr, ptr, buffer, temp_buffer);
-                    removeClientConn(c_list, ptr->client);
-                }
-            }
+            memset(output, '\0', BUFFER_SIZE);
+            snprintf(output, BUFFER_SIZE, "User %s deleted from database", user);
+            return output;
         } else {
-            snprintf(buffer, sizeof(buffer), "Error deleting user from database");
-            use_window(chat_win, printInChatWin, buffer);
-            for (CLIENT_LIST_PTR ptr = c_list; ptr != NULL; ptr = ptr->next) {
-                if (strncmp(ptr->client.name, user_name, strlen(ptr->client.name)) == 0) {
-                    memset(buffer, '\0', BUFFER_SIZE);
-                    snprintf(buffer, sizeof(buffer), "Error deleting user from database");
-                    send_messages(sr, ptr, buffer, temp_buffer);
-                }
-            }
+            memset(output, '\0', BUFFER_SIZE);
+            snprintf(output, BUFFER_SIZE, "Error deleting user from database");
+            return output;
         }
     } else {
-        memset(buffer, '\0', BUFFER_SIZE);
-        snprintf(buffer, sizeof(buffer), "User %.100s not found in database", user_name);
-        use_window(chat_win, printInChatWin, buffer);
+        memset(output, '\0', BUFFER_SIZE);
+        snprintf(buffer, BUFFER_SIZE, "User %.100s not found in database", user_name);
+        return output;
     }
 }
 
@@ -572,13 +557,19 @@ void *handleClient(void *arg) {
             strtok(buffer, " "); char *token = strtok(NULL, " ");
             memset(temp_buffer, '\0', sizeof(temp_buffer));
             snprintf(temp_buffer, BUFFER_SIZE, ".updatedb name:%.100s*name+%s", client.name, token);
-            send(client.socket, updateDBUser(temp_buffer,output), strlen(temp_buffer), 0);
+            send(client.socket, updateDBUser(temp_buffer,output), strlen(output), 0);
         }
         else if (strncmp(buffer, ".recharge", 9) == 0) {
             strtok(buffer, " "); char *token = strtok(NULL, " ");
             memset(temp_buffer, '\0', sizeof(temp_buffer));
             snprintf(temp_buffer, BUFFER_SIZE, ".updatedb name:%.100s*balance+%s", client.name, token);
-            send(client.socket, updateDBUser(temp_buffer,output), strlen(temp_buffer), 0);
+            send(client.socket, updateDBUser(temp_buffer,output), strlen(output), 0);
+        }
+        else if (strncmp(buffer, ".deleteuser", 9) == 0) {
+            strtok(buffer, " "); char *token = strtok(NULL, " ");
+            memset(temp_buffer, '\0', sizeof(temp_buffer));
+            snprintf(temp_buffer, BUFFER_SIZE, ".deletedb name:%.100s", client.name);
+            send(client.socket, deleteDBUser(temp_buffer,output), strlen(output), 0);
         }
         else if (strncmp(buffer, ".userinfo", 6) == 0) {
             snprintf(query, sizeof(query), "SELECT * FROM users WHERE name='%.100s'", client.name);
@@ -598,7 +589,7 @@ void *handleClient(void *arg) {
             memset(temp_buffer, '\0', sizeof(temp_buffer));
             snprintf(temp_buffer, BUFFER_SIZE, "%.100s: %.900s", client.name, message);
             int gif = 0;
-            if (strncmp(message, "gif", 3) == 0) {receiveGif(message, client); gif = 1;}
+            if (strncmp(message, " gif", 4) == 0) {receiveGif(message, client); gif = 1;}
             else if (strncmp(linkedTo, "Broadcast", 9) == 0) {
                 for (CLIENT_LIST_PTR ptr = c_list; ptr != NULL; ptr = ptr->next) {
                     send(ptr->client.socket, temp_buffer, strlen(temp_buffer), 0);
@@ -630,15 +621,6 @@ void *handleClient(void *arg) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// *send_messages-> Send messages to clients
-///////////////////////////////////////////////////////////////////////////////
-void send_messages(SND_RCV sr, CLIENT_LIST_PTR ptr, char *buffer, char *temp_buffer)
-{
-    if (strncmp(buffer, "gif", 3) == 0) sendGif(buffer, ptr->client);
-    else send(ptr->client.socket, temp_buffer, strlen(temp_buffer), 0);
-}
-
-///////////////////////////////////////////////////////////////////////////////
 // help-> Print the help menu
 ///////////////////////////////////////////////////////////////////////////////
 char *help(char *buffer) {
@@ -655,7 +637,6 @@ void *inputWindowManagement(void *arg)
     char buffer[BUFFER_SIZE];
     char temp_buffer[BUFFER_SIZE];
     char output[BUFFER_SIZE];
-    SND_RCV sr;
 
     while (1)
     {   
@@ -674,7 +655,7 @@ void *inputWindowManagement(void *arg)
             use_window(chat_win, printInChatWin, printClientConn(temp_buffer));
         }
         else if (strncmp(buffer, ".listdb", 7) == 0) printDBUsers();
-        else if (strncmp(buffer, ".deletedb", 9) == 0) deleteDBUser(buffer);
+        else if (strncmp(buffer, ".deletedb", 9) == 0) use_window(chat_win, printInChatWin, deleteDBUser(buffer,output));
         else if (strncmp(buffer, ".updatedb", 9) == 0) use_window(chat_win, printInChatWin, updateDBUser(buffer,output));
         else if (strncmp(buffer, ".link", 5) == 0) {
             if (linkedToFunction(buffer,output) != NULL) {
@@ -695,11 +676,15 @@ void *inputWindowManagement(void *arg)
         }
         else if (strncmp(linkedTo, "Broadcast", 9) == 0) {
             for (CLIENT_LIST_PTR ptr = c_list; ptr != NULL; ptr = ptr->next) {
-                send_messages(sr, ptr, buffer, temp_buffer);
+                if (strncmp(buffer, "gif", 3) == 0) sendGif(temp_buffer, ptr->client);
+                else send(ptr->client.socket, temp_buffer, strlen(temp_buffer), 0);
             }
         } else if (strncmp(linkedTo, "Server", 6) != 0) {
             for (CLIENT_LIST_PTR ptr = c_list; ptr != NULL; ptr = ptr->next) {
-                if (strncmp(ptr->client.name, linkedTo, strlen(linkedTo)) == 0) send_messages(sr, ptr, buffer, temp_buffer);
+                if (strncmp(ptr->client.name, linkedTo, strlen(linkedTo)) == 0) {
+                    if (strncmp(buffer, "gif", 3) == 0) sendGif(temp_buffer, ptr->client);
+                    else send(ptr->client.socket, temp_buffer, strlen(temp_buffer), 0);
+                }
                 else {
                     memset(temp_buffer, '\0', BUFFER_SIZE);
                     snprintf(temp_buffer, BUFFER_SIZE, "The user is no longer available.");

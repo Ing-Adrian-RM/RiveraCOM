@@ -49,11 +49,6 @@ typedef struct connected_clients{
     CLIENT client;
     struct connected_clients *next;
 }CLIENT_LIST, *CLIENT_LIST_PTR;
-
-typedef struct sender_receiver{
-    char sender_name[BUFFER_SIZE];
-    CLIENT_LIST_PTR receiver;
-}SND_RCV, *SND_RCV_PTR;
     
 //Global Vars /////////////////////////////////////////////////////////////////
 
@@ -76,7 +71,7 @@ int userDBExists(char *search_by, int option);
 CLIENT registerDBUser(CLIENT client);
 void printDBUsers();
 char *updateDBUser(char *command, char *output);
-void deleteDBUser(char *command);
+char *deleteDBUser(char *command, char *output);
 char *printClientConn(char *buffer);
 CLIENT_LIST_PTR addClientConn(CLIENT_LIST_PTR c_list, CLIENT client);
 CLIENT_LIST_PTR removeClientConn(CLIENT_LIST_PTR c_list, CLIENT client);
@@ -89,7 +84,6 @@ int clearInputWin(WINDOW *win, void *arg);
 void sendGif(char *buffer, CLIENT client);
 void receiveGif(char *buffer, CLIENT client);
 void *handleClient(void *arg);
-void send_messages(SND_RCV sr, CLIENT_LIST_PTR ptr, char *buffer, char *temp_buffer);
 char *help(char *buffer);
 void *inputWindowManagement(void *arg);
 void *discovery();

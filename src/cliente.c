@@ -398,7 +398,7 @@ int main() {
             int bytes_read = read(client, temp_buffer, BUFFER_SIZE);
             use_window(chat_win, printInChatWin, temp_buffer);
         }
-        else if (strncmp(buffer, ".rename", 7) == 0 || strncmp(buffer, ".recharge", 9) == 0 || strncmp(buffer, ".userinfo", 9) == 0) {
+        else if (strncmp(buffer, ".rename", 7) == 0 || strncmp(buffer, ".recharge", 9) == 0 || strncmp(buffer, ".userinfo", 9) == 0 || strncmp(buffer, ".deleteuser", 9) == 0) {
             send(client_i.socket, buffer, strlen(buffer), 0);
             memset(temp_buffer, '\0', sizeof(temp_buffer));
             int bytes_read = read(client, temp_buffer, BUFFER_SIZE);
@@ -408,7 +408,7 @@ int main() {
             memset(temp_buffer, '\0', BUFFER_SIZE);
             snprintf(temp_buffer, BUFFER_SIZE, ".m|%s:%s", linkedTo, buffer);
             send(client_i.socket, temp_buffer, strlen(temp_buffer), 0);
-            if (strncmp(buffer, "gif", 3) == 0) sendGif(buffer, client_i);
+            if (strncmp(buffer, "gif", 3) == 0) sendGif(temp_buffer, client_i);
         }
     }
 
