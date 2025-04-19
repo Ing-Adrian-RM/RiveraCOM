@@ -8,7 +8,7 @@
 #include "server_elements.h"
 
 ///////////////////////////////////////////////////////////////////////////////
-// executeDataQuery-> 
+// executeDataQuery-> Execute a query that returns data
 ///////////////////////////////////////////////////////////////////////////////
 MYSQL_RES* executeDataQuery(const char *query) {
     conn = mysql_init(NULL);
@@ -26,7 +26,7 @@ MYSQL_RES* executeDataQuery(const char *query) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// executeDataQuery-> 
+// executeDataQuery-> Execute a query that return affected rows
 ///////////////////////////////////////////////////////////////////////////////
 unsigned long executeEnumQuery(const char *query) {
     conn = mysql_init(NULL);
@@ -44,7 +44,7 @@ unsigned long executeEnumQuery(const char *query) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// userDBExists-> 
+// userDBExists-> Use to check if a user exists in the database
 ///////////////////////////////////////////////////////////////////////////////
 int userDBExists(char *search_by, int option) {
     int exists = 0;
@@ -61,7 +61,7 @@ int userDBExists(char *search_by, int option) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// registerDBUser-> 
+// registerDBUser-> Register a new user in the database
 ///////////////////////////////////////////////////////////////////////////////
 CLIENT registerDBUser(CLIENT client) {
     char buffer[BUFFER_SIZE];
@@ -113,7 +113,7 @@ CLIENT registerDBUser(CLIENT client) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// printDBUsers-> 
+// printDBUsers-> Print all users data in the database
 ///////////////////////////////////////////////////////////////////////////////
 void printDBUsers() {
     char buffer[BUFFER_SIZE];
@@ -132,9 +132,9 @@ void printDBUsers() {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// updateDBUsers-> 
+// updateDBUsers-> Update a user data in the database
 ///////////////////////////////////////////////////////////////////////////////
-void updateDBUser(char *command) {
+char *updateDBUser(char *command) {
     char buffer[BUFFER_SIZE];
     char temp_buffer[BUFFER_SIZE];
     char user_name[BUFFER_SIZE];
@@ -150,17 +150,9 @@ void updateDBUser(char *command) {
         memset(query, '\0', QUERY_SIZE);    
         if (strncmp(variable, "name", 4) == 0) {
             if (userDBExists(value, 0)) {
-                memset(buffer, '\0', BUFFER_SIZE);
-                snprintf(buffer, sizeof(buffer), "Username already exists. Request failed.");
-                use_window(chat_win, printInChatWin, buffer);
-                for (CLIENT_LIST_PTR ptr = c_list; ptr != NULL; ptr = ptr->next) {
-                    if (strncmp(ptr->client.name, identificator, strlen(ptr->client.name)) == 0 || strncmp(ptr->client.ip, identificator, strlen(ptr->client.ip)) == 0) {
-                        memset(buffer, '\0', BUFFER_SIZE);
-                        snprintf(buffer, sizeof(buffer), "Username already exists. Request failed.");
-                        send_messages(sr, ptr, buffer, temp_buffer);
-                    }
-                }
-                return;
+                memset(command, '\0', BUFFER_SIZE);
+                snprintf(command, BUFFER_SIZE, "Username already exists. Request failed.");
+                return command;
             }
             else snprintf(query, sizeof(query), "UPDATE users SET name='%s' WHERE %s='%s'", value, switcher, identificator);
         }
@@ -172,36 +164,24 @@ void updateDBUser(char *command) {
 
         memset(buffer, '\0', BUFFER_SIZE);
         if (result >= 0){
-            snprintf(buffer, sizeof(buffer), "User %s updated in database.", identificator);
-            use_window(chat_win, printInChatWin, buffer);
-            for (CLIENT_LIST_PTR ptr = c_list; ptr != NULL; ptr = ptr->next) {
-                if (strncmp(ptr->client.name, identificator, strlen(ptr->client.name)) == 0 || strncmp(ptr->client.ip, identificator, strlen(ptr->client.ip)) == 0) {
-                    memset(buffer, '\0', BUFFER_SIZE);
-                    snprintf(temp_buffer, sizeof(temp_buffer), "Your %s information has updated in users database.", variable);
-                    //send_messages(sr, ptr, buffer, temp_buffer);
-                }
-            }
+            memset(command, '\0', BUFFER_SIZE);
+            snprintf(command, BUFFER_SIZE, "%s data of user %s updated in database.", variable, identificator);
+            return command;
         } 
         else {
-            snprintf(buffer, sizeof(buffer), "Error updating database.");
-            use_window(chat_win, printInChatWin, buffer);
-            for (CLIENT_LIST_PTR ptr = c_list; ptr != NULL; ptr = ptr->next) {
-                if (strncmp(ptr->client.name, identificator, strlen(ptr->client.name)) == 0 || strncmp(ptr->client.ip, identificator, strlen(ptr->client.ip)) == 0) {
-                    memset(buffer, '\0', BUFFER_SIZE);
-                    snprintf(buffer, sizeof(buffer), "Error updating database.");
-                    send_messages(sr, ptr, buffer, temp_buffer);
-                }
-            }
+            memset(command, '\0', BUFFER_SIZE);
+            snprintf(command, BUFFER_SIZE, "Error updating database.");
+            return command;
         }    
     } else {
-        memset(buffer, '\0', BUFFER_SIZE);
-        snprintf(buffer, sizeof(buffer), "User %.100s not found in database", user_name);
-        use_window(chat_win, printInChatWin, buffer);
+        memset(command, '\0', BUFFER_SIZE);
+        snprintf(command, BUFFER_SIZE, "User %.100s not found in database", user_name);
+        return command;
     }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// deleteDBUsers-> 
+// deleteDBUsers-> Delete a user from the database
 ///////////////////////////////////////////////////////////////////////////////
 void deleteDBUser(char *command){
     char buffer[BUFFER_SIZE];
@@ -257,21 +237,22 @@ void deleteDBUser(char *command){
 ///////////////////////////////////////////////////////////////////////////////
 // printClientConn-> Print the connected clients list
 ///////////////////////////////////////////////////////////////////////////////
-void printClientConn(CLIENT_LIST_PTR c_list){
-    char buffer[BUFFER_SIZE];
+char *printClientConn(char *buffer) {
+    char temp_buffer[BUFFER_SIZE];
+
     if (c_list == NULL) {
-        snprintf(buffer, sizeof(buffer), "Connected clients list: NULL");
-        use_window(chat_win, printInChatWin, buffer);
+        memset(buffer, '\0', BUFFER_SIZE);
+        snprintf(buffer, BUFFER_SIZE, "Connected clients list: NULL\n");
     } else {
         memset(buffer, '\0', BUFFER_SIZE);
-        snprintf(buffer, sizeof(buffer), "Connected clients list:");
-        for (CLIENT_LIST_PTR ptr = c_list; ptr != NULL; ptr = ptr->next){    
-            use_window(chat_win, printInChatWin, buffer);
-            memset(buffer, '\0', BUFFER_SIZE);
-            snprintf(buffer, sizeof(buffer), "Client: %.100s, IP: %.100s, Client_socket: %d", ptr->client.name, ptr->client.ip, ptr->client.socket);
-            use_window(chat_win, printInChatWin, buffer);
+        memset(temp_buffer, '\0', BUFFER_SIZE);
+        snprintf(buffer, BUFFER_SIZE, "Connected clients list:\n");
+        for (CLIENT_LIST_PTR ptr = c_list; ptr != NULL; ptr = ptr->next) {
+            snprintf(temp_buffer, sizeof(temp_buffer), " %.100s, IP: %.100s\n", ptr->client.name, ptr->client.ip);
+            strncat(buffer, temp_buffer, BUFFER_SIZE - strlen(buffer) - 1);
         }
     }
+    return buffer;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -334,6 +315,20 @@ void disconnectAllClients(CLIENT_LIST_PTR c_list) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+// linkedToFunction()-> Check if a user to link is available 
+///////////////////////////////////////////////////////////////////////////////
+int linkedToFunction(char *command) {
+    strtok(command, " "); char *user_name = strtok(NULL, " ");
+    if (strncmp("Broadcast", user_name, strlen(user_name)) == 0) return 1;
+    for (CLIENT_LIST_PTR ptr = c_list; ptr != NULL; ptr = ptr->next) {
+        if (strncmp(ptr->client.name, user_name, strlen(user_name)) == 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
 // shutdownServer-> Safely shuts down the server, releasing resources
 ///////////////////////////////////////////////////////////////////////////////
 void shutdownServer(CLIENT_LIST_PTR c_list) {
@@ -356,45 +351,51 @@ void shutdownServer(CLIENT_LIST_PTR c_list) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// print_in_chatwin-> 
+// print_in_chatwin-> Print a message in the chat window
 ///////////////////////////////////////////////////////////////////////////////
 int printInChatWin(WINDOW *win, void *arg) {
     char *message = (char *)arg;
+    char temp_buffer[BUFFER_SEND_SIZE];
     int lines_writed = 1;
-    while (*message)
-    {
-        if (line >= LINES - 5)
-        {
+
+    while (*message) {
+        if (line >= LINES - 5) {
             box(chat_win, ' ', ' ');
             scroll(chat_win);
             box(chat_win, 0, 0);
-            //pthread_mutex_lock(&lock);
             line--;
-            //pthread_mutex_unlock(&lock);
         }
 
-        memset(temp, ' ', sizeof(max_width + 1));
-        if (lines_writed == 1)
-        {
-            strncpy(temp, message, max_width - 10); //No puede ser un valor fijo
-            temp[max_width + 1] = '\0';
-            mvwprintw(chat_win, line, 1, "%s", temp);
-            message += (max_width - 4);
+        if (lines_writed == 1) {
+            memset(temp_buffer, '\0', BUFFER_SEND_SIZE);
+            char *newline_pos = strchr(message, '\n');
+            if (newline_pos && (newline_pos - message) < (max_width - 20)) {
+                strncpy(temp_buffer, message, newline_pos - message);
+                mvwprintw(chat_win, line, 1, "%s", temp_buffer);
+                message = newline_pos + 1;
+            } else {
+                strncpy(temp_buffer, message, max_width - 20);
+                mvwprintw(chat_win, line, 1, "%s", temp_buffer);
+                message += strlen(temp_buffer);
+            }
+        } else if (lines_writed > 1) {
+            memset(temp_buffer, '\0', BUFFER_SEND_SIZE);
+            char *newline_pos = strchr(message, '\n');
+            if (newline_pos && (newline_pos - message) < max_width) {
+                strncpy(temp_buffer, message, newline_pos - message);
+                mvwprintw(chat_win, line, 1, "%s", temp_buffer);
+                message = newline_pos + 1;
+            } else {
+                strncpy(temp_buffer, message, max_width);
+                mvwprintw(chat_win, line, 1, "%s", temp_buffer);
+                message += strlen(temp_buffer);
+            }
         }
-        else if (lines_writed > 1)
-        {
-            strncpy(temp, message, max_width);
-            temp[max_width + 1] = '\0';
-            mvwprintw(chat_win, line, 1, "%s", temp);
-            message += (max_width);
-        }
+
         box(chat_win, 0, 0);
         wrefresh(chat_win);
         lines_writed++;
-
-        //pthread_mutex_lock(&lock);
         line++;
-        //pthread_mutex_unlock(&lock);
     }
 
     wmove(input_win, sizeof("Message: "), 1);
@@ -403,7 +404,7 @@ int printInChatWin(WINDOW *win, void *arg) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// clear_chat_win-> 
+// clear_chat_win-> Cleans the chat window
 ///////////////////////////////////////////////////////////////////////////////
 int clearChatWin(WINDOW *win, void *arg) {
     
@@ -415,14 +416,16 @@ int clearChatWin(WINDOW *win, void *arg) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// clear_input_win-> 
+// clear_input_win-> Cleans the input window
 ///////////////////////////////////////////////////////////////////////////////
 int clearInputWin(WINDOW *win, void *arg) {
     
     werase(input_win);
     wborder(input_win, ' ', ' ', '-', '-', '-', '-', '-', '-');
+    mvwprintw(input_win, 2, 0, "Linked to: %s", linkedTo);
     mvwprintw(input_win, 1, 0, "Message: ");
     wrefresh(input_win);
+    
     return OK;
 }
 
@@ -519,7 +522,7 @@ void receiveGif(char *buffer, CLIENT client) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// *handleClient-> 
+// *handleClient-> Handle the client connection
 ///////////////////////////////////////////////////////////////////////////////
 void *handleClient(void *arg) {
 
@@ -536,15 +539,82 @@ void *handleClient(void *arg) {
         memset(buffer, '\0', BUFFER_SIZE);
         
         bytesReceived = read(client.socket, buffer, BUFFER_SIZE);
-        snprintf(temp_buffer, sizeof(temp_buffer), "%.100s: %.900s", client.name,buffer);
+        snprintf(temp_buffer, BUFFER_SIZE, "%.100s: %.900s", client.name,buffer);
 
         if (bytesReceived <= 0) {
             snprintf(buffer, BUFFER_SIZE, "%.900s disconnected", client.name);
             use_window(chat_win, printInChatWin, buffer);
             break;
         }
-        if (strncmp(buffer, "gif", 3) == 0) receiveGif(buffer, client);   
-        else use_window(chat_win, printInChatWin, temp_buffer);
+        if (strncmp(buffer, ".link", 5) == 0) {
+            if (linkedToFunction(buffer)) {
+                memset(buffer, '\0', sizeof(buffer));
+                snprintf(buffer, BUFFER_SIZE, "YES");
+                send(client.socket, buffer, strlen(buffer), 0);
+            } else {
+                memset(buffer, '\0', sizeof(buffer));
+                snprintf(buffer, BUFFER_SIZE, "NO");
+                send(client.socket, buffer, strlen(buffer), 0);
+            }
+        }
+        else if (strncmp(buffer, ".listc", 6) == 0) {
+            memset(temp_buffer, '\0', sizeof(temp_buffer));
+            send(client.socket, printClientConn(temp_buffer), strlen(temp_buffer), 0);
+        }
+        else if (strncmp(buffer, ".rename", 6) == 0) {
+            strtok(buffer, " "); char *token = strtok(NULL, " ");
+            memset(temp_buffer, '\0', sizeof(temp_buffer));
+            snprintf(temp_buffer, BUFFER_SIZE, ".updatedb name:%.100s*name+%s", client.name, token);
+            send(client.socket, updateDBUser(temp_buffer), strlen(temp_buffer), 0);
+        }
+        else if (strncmp(buffer, ".recharge", 9) == 0) {
+            strtok(buffer, " "); char *token = strtok(NULL, " ");
+            memset(temp_buffer, '\0', sizeof(temp_buffer));
+            snprintf(temp_buffer, BUFFER_SIZE, ".updatedb name:%.100s*balance+%s", client.name, token);
+            send(client.socket, updateDBUser(temp_buffer), strlen(temp_buffer), 0);
+        }
+        else if (strncmp(buffer, ".userinfo", 6) == 0) {
+            snprintf(query, sizeof(query), "SELECT * FROM users WHERE name='%.100s'", client.name);
+            res = executeDataQuery(query);
+            if (res == NULL) {
+                memset(temp_buffer, '\0', sizeof(temp_buffer));
+                snprintf(temp_buffer, BUFFER_SIZE, "IP: %s, Name: %s, Balance: %s, Uploaded: %s, Downloaded: %s\n", row[0], row[1], row[2], row[3], row[4]);
+                send(client.socket, temp_buffer, strlen(temp_buffer), 0);
+            } else {
+                memset(temp_buffer, '\0', sizeof(temp_buffer));
+                snprintf(temp_buffer, BUFFER_SIZE, "Error executing query: %s\n", mysql_error(conn));
+                send(client.socket, temp_buffer, strlen(temp_buffer), 0);
+            }
+        } else if ((strncmp(buffer, ".m", 2) == 0)) {
+            strtok(buffer, ":"); char *message = strtok(NULL, ":");
+            strtok(buffer, "|"); char *link = strtok(NULL, "|");
+            memset(temp_buffer, '\0', sizeof(temp_buffer));
+            snprintf(temp_buffer, BUFFER_SIZE, "%.100s: %.900s", client.name, message);
+            int gif = 0;
+            if (strncmp(message, "gif", 3) == 0) {receiveGif(buffer, client); gif = 1;}
+            if (strncmp(link, "Server", 6) == 0) {
+                use_window(chat_win, printInChatWin, temp_buffer);
+            }else if (strncmp(linkedTo, "Broadcast", 9) == 0) {
+                for (CLIENT_LIST_PTR ptr = c_list; ptr != NULL; ptr = ptr->next) {
+                    send(ptr->client.socket, temp_buffer, strlen(temp_buffer), 0);
+                    if (gif) sendGif(message, ptr->client);
+                }
+            } else {
+                int found = 0;
+                for (CLIENT_LIST_PTR ptr = c_list; ptr != NULL; ptr = ptr->next) {
+                    if (strncmp(ptr->client.name, link, strlen(link)) == 0) {
+                        send(ptr->client.socket, temp_buffer, strlen(temp_buffer), 0);
+                        if (gif) sendGif(message, ptr->client);
+                        found = 1;
+                    }
+                }
+                if (!found) {
+                    memset(temp_buffer, '\0', sizeof(temp_buffer));
+                    snprintf(temp_buffer, BUFFER_SIZE, "Server: The user is no longer available.");
+                    send(client.socket, temp_buffer, strlen(temp_buffer), 0);
+                }
+            }
+        }
     }
 
     c_list = removeClientConn(c_list, client);
@@ -553,7 +623,7 @@ void *handleClient(void *arg) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// *send_messages-> 
+// *send_messages-> Send messages to clients
 ///////////////////////////////////////////////////////////////////////////////
 void send_messages(SND_RCV sr, CLIENT_LIST_PTR ptr, char *buffer, char *temp_buffer)
 {
@@ -565,7 +635,16 @@ void send_messages(SND_RCV sr, CLIENT_LIST_PTR ptr, char *buffer, char *temp_buf
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// *inputWindowManagement-> 
+// help-> Print the help menu
+///////////////////////////////////////////////////////////////////////////////
+char *help(char *buffer) {
+    memset(buffer, '\0', BUFFER_SIZE);
+    snprintf(buffer, BUFFER_SIZE, "Commands:\n .close: Close the server\n .clear: Clear the chat window\n .listc: List connected clients\n .listdb: List users in the database\n .deletedb: Delete a user from the database\n .updatedb: Update a user in the database\n .link <user>: Link to a user\n .unlink: Unlink from a user\n .help: Show this help menu\n @<user>: Send a message to a specific user\n @B:<message>: Broadcast a message to all users");
+    return buffer;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// *inputWindowManagement-> Manage the input window
 ///////////////////////////////////////////////////////////////////////////////
 void *inputWindowManagement(void *arg)
 {
@@ -578,34 +657,48 @@ void *inputWindowManagement(void *arg)
         memset(buffer, '\0', BUFFER_SIZE);
         memset(temp_buffer, '\0', BUFFER_SIZE);
         use_window(input_win, clearInputWin, 0);
-        wgetnstr(input_win, buffer, BUFFER_SEND_SIZE - sizeof("Message: "));
-        snprintf(temp_buffer, sizeof(temp_buffer), "Server: %.900s", buffer);
+        wgetnstr(input_win, buffer, BUFFER_SEND_SIZE);
+        snprintf(temp_buffer, BUFFER_SIZE, "Server: %.900s", buffer);
 
         if (strncmp(buffer, ".close", 6) == 0) shutdownServer(c_list);
         else if (strncmp(buffer, ".clear", 6) == 0) {use_window(chat_win, clearChatWin, 0); use_window(input_win, clearInputWin, 0);}
-        else if (strncmp(buffer, ".listc", 6) == 0) printClientConn(c_list);
+        else if (strncmp(buffer, ".listc", 6) == 0) {
+            memset(temp_buffer, '\0', BUFFER_SIZE);
+            use_window(chat_win, printInChatWin, printClientConn(temp_buffer));
+        }
         else if (strncmp(buffer, ".listdb", 7) == 0) printDBUsers();
         else if (strncmp(buffer, ".deletedb", 9) == 0) deleteDBUser(buffer);
-        else if (strncmp(buffer, ".updatedb", 9) == 0) updateDBUser(buffer);
-        else if (strncmp(buffer, ".help", 5) == 0) {
-            snprintf(temp_buffer, sizeof(temp_buffer), "Commands: @close, @clear, @list");
-            use_window(chat_win, printInChatWin, temp_buffer);
-        }
-        else if (strncmp(buffer, "@B:", 3) == 0) {
-            char *token = strtok(buffer, ":");
-            char *message = strtok(NULL, ":");
-            snprintf(temp_buffer, sizeof(temp_buffer), "Server: %s", message);
-            for (CLIENT_LIST_PTR ptr = c_list; ptr != NULL; ptr = ptr->next) {
-                send_messages(sr, ptr, message, temp_buffer);
+        else if (strncmp(buffer, ".updatedb", 9) == 0) use_window(chat_win, printInChatWin, updateDBUser(buffer));
+        else if (strncmp(buffer, ".link", 5) == 0) {
+            if (linkedToFunction(buffer)) {
+                strtok(buffer, " "); char *user_name = strtok(NULL, " ");
+                memset(linkedTo, '\0', 100);
+                snprintf(linkedTo, 100, "%s", user_name);
+            } else {
+                snprintf(temp_buffer, BUFFER_SIZE, "User not available.");
+                use_window(chat_win, printInChatWin, temp_buffer);
             }
-        } else if (strncmp(buffer, "@", 1) == 0) {
-            char *token = strtok(buffer + 1, ":");
-            char *message = strtok(NULL, ":");
-            snprintf(temp_buffer, sizeof(temp_buffer), "Server: %s", message);
+        }
+        else if (strncmp(buffer, ".unlink", 7) == 0) {
+            memset(linkedTo, '\0', 100);
+            snprintf(linkedTo, 100, "Server");
+        }
+        else if (strncmp(buffer, ".help", 5) == 0) {
+            memset(temp_buffer, '\0', BUFFER_SIZE);
+            use_window(chat_win, printInChatWin, help(temp_buffer));
+        }
+        else if (strncmp(linkedTo, "Server", 6) == 0) use_window(chat_win, printInChatWin, temp_buffer);
+        else if (strncmp(linkedTo, "Broadcast", 9) == 0) {
             for (CLIENT_LIST_PTR ptr = c_list; ptr != NULL; ptr = ptr->next) {
-                if (strncmp(ptr->client.name, token, strlen(token)) == 0) {
-                    send_messages(sr, ptr, message, temp_buffer);
-                    break;
+                send_messages(sr, ptr, buffer, temp_buffer);
+            }
+        } else {
+            for (CLIENT_LIST_PTR ptr = c_list; ptr != NULL; ptr = ptr->next) {
+                if (strncmp(ptr->client.name, linkedTo, strlen(linkedTo)) == 0) send_messages(sr, ptr, buffer, temp_buffer);
+                else {
+                    memset(temp_buffer, '\0', BUFFER_SIZE);
+                    snprintf(temp_buffer, BUFFER_SIZE, "The user is no longer available.");
+                    use_window(chat_win, printInChatWin, temp_buffer);
                 }
             }
         }
@@ -614,7 +707,8 @@ void *inputWindowManagement(void *arg)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// discovery-> 
+// discovery-> This function listens for discovery messages and responds 
+// with the server's IP address
 ///////////////////////////////////////////////////////////////////////////////
 
 void *discovery() {
@@ -657,8 +751,8 @@ void *discovery() {
     }   
 
     while (1) {
-        memset(buffer, 0, sizeof(buffer));
-        if (recvfrom(sock, buffer, sizeof(buffer), 0, (struct sockaddr *)&client_addr, &addr_len) < 0) {
+        memset(buffer, 0, BUFFER_SIZE);
+        if (recvfrom(sock, buffer, BUFFER_SIZE, 0, (struct sockaddr *)&client_addr, &addr_len) < 0) {
             perror("Error receiving message");
             continue;
         }
@@ -669,7 +763,8 @@ void *discovery() {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// setup-> 
+// setup-> Setup function to initialize the server
+// and create necessary threads
 ///////////////////////////////////////////////////////////////////////////////
 void setup()
 {   
@@ -702,7 +797,7 @@ void setup()
     cbreak();
     curs_set(1);
     max_width = COLS - 2;
-    BUFFER_SEND_SIZE = COLS * 2;
+    BUFFER_SEND_SIZE = COLS - 2 - sizeof("Message: ");
     temp = malloc((max_width + 1) * sizeof(char));
 
     // Create windows for chat and input
@@ -718,7 +813,7 @@ void setup()
     wrefresh(input_win);
 
     memset(buffer, '\0', BUFFER_SIZE);
-    snprintf(buffer, sizeof(buffer), "Server initalized. Type 'close' to terminate.");
+    snprintf(buffer, BUFFER_SIZE, "Server initalized. Type 'close' to terminate.");
     use_window(chat_win, printInChatWin, buffer);
 
     pthread_t send_thread;
@@ -733,10 +828,10 @@ int main()
 
     if (listen(server, 1) < 0)
     {   
-        snprintf(buffer, sizeof(buffer), "Server initalized error. Press enter to close.");
+        snprintf(buffer, BUFFER_SEND_SIZE, "Server initalized error. Press enter to close.");
         use_window(chat_win, printInChatWin, buffer);
         use_window(input_win, clearInputWin, 0);
-        wgetnstr(input_win, buffer, BUFFER_SEND_SIZE - sizeof("Message: "));
+        wgetnstr(input_win, buffer, BUFFER_SEND_SIZE);
         close(server);
         exit(EXIT_FAILURE);
     }
@@ -753,7 +848,7 @@ int main()
             pthread_create(&client_thread, NULL, handleClient, (void *)client_socket);
             pthread_detach(client_thread);
         } else {
-            snprintf(buffer, sizeof(buffer), "Connection requested fail");
+            snprintf(buffer, BUFFER_SEND_SIZE, "Connection requested fail");
             use_window(chat_win, printInChatWin, buffer);
         }
     }

@@ -13,40 +13,47 @@ char SERVER[BUFFER_SIZE];
 ///////////////////////////////////////////////////////////////////////////////
 int printInChatWin(WINDOW *win, void *arg) {
     char *message = (char *)arg;
+    char temp_buffer[BUFFER_SEND_SIZE];
     int lines_writed = 1;
-    while (*message)
-    {
-        if (line >= LINES - 5)
-        {
+
+    while (*message) {
+        if (line >= LINES - 5) {
             box(chat_win, ' ', ' ');
             scroll(chat_win);
             box(chat_win, 0, 0);
-            pthread_mutex_lock(&lock);
             line--;
-            pthread_mutex_unlock(&lock);
         }
-        memset(temp, ' ', sizeof(max_width + 1));
-        if (lines_writed == 1)
-        {
-            strncpy(temp, message, max_width - 10); //No puede ser un valor fijo
-            temp[max_width + 1] = '\0';
-            mvwprintw(chat_win, line, 1, "%s", temp);
-            message += (max_width - 4);
+
+        if (lines_writed == 1) {
+            memset(temp_buffer, '\0', BUFFER_SEND_SIZE);
+            char *newline_pos = strchr(message, '\n');
+            if (newline_pos && (newline_pos - message) < (max_width - 20)) {
+                strncpy(temp_buffer, message, newline_pos - message);
+                mvwprintw(chat_win, line, 1, "%s", temp_buffer);
+                message = newline_pos + 1;
+            } else {
+                strncpy(temp_buffer, message, max_width - 20);
+                mvwprintw(chat_win, line, 1, "%s", temp_buffer);
+                message += strlen(temp_buffer);
+            }
+        } else if (lines_writed > 1) {
+            memset(temp_buffer, '\0', BUFFER_SEND_SIZE);
+            char *newline_pos = strchr(message, '\n');
+            if (newline_pos && (newline_pos - message) < max_width) {
+                strncpy(temp_buffer, message, newline_pos - message);
+                mvwprintw(chat_win, line, 1, "%s", temp_buffer);
+                message = newline_pos + 1;
+            } else {
+                strncpy(temp_buffer, message, max_width);
+                mvwprintw(chat_win, line, 1, "%s", temp_buffer);
+                message += strlen(temp_buffer);
+            }
         }
-        else if (lines_writed > 1)
-        {
-            strncpy(temp, message, max_width);
-            temp[max_width + 1] = '\0';
-            mvwprintw(chat_win, line, 1, "%s", temp);
-            message += (max_width);
-        }
+
         box(chat_win, 0, 0);
         wrefresh(chat_win);
         lines_writed++;
-
-        pthread_mutex_lock(&lock);
         line++;
-        pthread_mutex_unlock(&lock);
     }
 
     wmove(input_win, sizeof("Message: "), 1);
@@ -71,6 +78,7 @@ int clearChatWin(WINDOW *win, void *arg) {
 int clearInputWin(WINDOW *win, void *arg) {   
     werase(input_win);
     wborder(input_win, ' ', ' ', '-', '-', '-', '-', '-', '-');
+    mvwprintw(input_win, 2, 0, "Linked to: %s", linkedTo);
     mvwprintw(input_win, 1, 0, "Message: ");
     wrefresh(input_win);
     return OK;
@@ -164,7 +172,7 @@ void receiveGif(char *buffer, CLIENT client) {
     }
     fclose(file);
     memset(temp_buffer, '\0', BUFFER_SIZE);
-    snprintf(temp_buffer, BUFFER_SIZE, "gif %.100s received. Total bytes transmited: %zu", gif_name, total_bytes_received);
+    snprintf(temp_buffer, BUFFER_SIZE, "Me: gif %.100s received. Total bytes transmited: %zu", gif_name, total_bytes_received);
     use_window(chat_win, printInChatWin, temp_buffer);
 }
 ///////////////////////////////////////////////////////////////////////////////
@@ -173,10 +181,11 @@ void receiveGif(char *buffer, CLIENT client) {
 void *receive_messages() {
     while (1) {
         char buffer[BUFFER_SIZE];
-        char temp_buffer[BUFFER_SIZE];
         memset(buffer, '\0', BUFFER_SIZE);
-        memset(temp_buffer, '\0', BUFFER_SIZE);
         int bytes_read = read(client, buffer, BUFFER_SIZE);
+        strtok(buffer, ":"); char *message = strtok(NULL, ":");
+        if (strncmp(message, " gif", 4) == 0) receiveGif(buffer, client_i);
+        use_window(chat_win, printInChatWin, buffer);
         if (bytes_read <= 0) {
             use_window(chat_win, clearChatWin, buffer);
             snprintf(buffer, sizeof(buffer), "Server disconnected, closing in 3 seconds...\n");
@@ -187,9 +196,6 @@ void *receive_messages() {
             pthread_mutex_destroy(&lock);
             exit(0);
         }
-        
-        if (strncmp(buffer, "gif", 3) == 0) receiveGif(buffer, client_i);
-        else use_window(chat_win, printInChatWin, buffer);
     }
     return NULL;
 }
@@ -248,6 +254,27 @@ void discoverServer() {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+// help-> Print the help menu
+///////////////////////////////////////////////////////////////////////////////
+char *help(char *buffer) {
+    memset(buffer, '\0', BUFFER_SIZE);
+    snprintf(buffer, BUFFER_SIZE, "Commands:\n"
+        ".close: Close the server\n"
+        ".clear: Clear the chat window\n"
+        ".listc: List connected clients\n"
+        ".listdb: List users in the database\n"
+        ".deletedb: Delete a user from the database\n"
+        ".updatedb: Update a user in the database\n"
+        ".link <user>: Link to a user\n"
+        ".unlink: Unlink from a user\n"
+        ".help: Show this help menu\n"
+        "@<user>: Send a message to a specific user\n"
+        "@B:<message>: Broadcast a message to all users");
+    return buffer;
+}
+
+
+///////////////////////////////////////////////////////////////////////////////
 // setup-> 
 ///////////////////////////////////////////////////////////////////////////////
 void setup() {
@@ -289,7 +316,7 @@ void setup() {
     cbreak();
     curs_set(1);
     max_width = COLS - 2;
-    BUFFER_SEND_SIZE = COLS * 2;
+    BUFFER_SEND_SIZE = COLS - 2 - sizeof("Message: ");
     temp = malloc((max_width + 1) * sizeof(char));
 
     // Create windows for chat and input
@@ -327,20 +354,60 @@ int main() {
         memset(buffer, '\0', BUFFER_SEND_SIZE);
         memset(temp_buffer, '\0', BUFFER_SIZE);
         use_window(input_win, clearInputWin, 0);
-        wgetnstr(input_win, buffer, BUFFER_SEND_SIZE - sizeof("Message: "));
+        wgetnstr(input_win, buffer, BUFFER_SEND_SIZE);
         snprintf(temp_buffer, sizeof(temp_buffer), "Me: %s", buffer);
+        use_window(chat_win, printInChatWin, temp_buffer);
         
-        if (strncmp(buffer, "close", 5) == 0) {
+        if (strncmp(buffer, ".close", 6) == 0) {
             endwin(); close(client); free(temp);
             pthread_mutex_destroy(&lock);
             exit(0);
         }
-        if (strncmp(buffer, "clear", 5) == 0) {use_window(chat_win, clearChatWin, 0); continue;}
-
-        if (strncmp(buffer, "gif", 3) == 0) sendGif(buffer, client_i);
-        else {
-            use_window(chat_win, printInChatWin, temp_buffer);
+        else if (strncmp(buffer, ".clear", 6) == 0) use_window(chat_win, clearChatWin, 0);
+        else if (strncmp(buffer, ".help", 5) == 0) {
+            memset(temp_buffer, '\0', BUFFER_SIZE);
+            use_window(chat_win, printInChatWin, help(temp_buffer));
+        }
+        else if (strncmp(buffer, ".link", 5) == 0) {
+            strtok(buffer, " "); char *user_name = strtok(NULL, " ");
             send(client_i.socket, buffer, strlen(buffer), 0);
+            memset(temp_buffer, '\0', sizeof(temp_buffer));
+            int bytes_read = read(client, temp_buffer, BUFFER_SIZE);
+            if (strncmp(temp_buffer, "YES", 3) == 0) {
+                memset(linkedTo, '\0', sizeof(linkedTo));
+                snprintf(linkedTo, sizeof(linkedTo), "%s", user_name);
+                memset(temp_buffer, '\0', sizeof(temp_buffer));
+                snprintf(temp_buffer, sizeof(temp_buffer), "*** Linked to %s ***", user_name);
+                use_window(chat_win, printInChatWin, temp_buffer);
+            } else {
+                memset(temp_buffer, '\0', sizeof(temp_buffer));
+                snprintf(temp_buffer, sizeof(temp_buffer), "User not available.");
+                use_window(chat_win, printInChatWin, temp_buffer);
+            }
+        }
+        else if (strncmp(buffer, ".unlink", 7) == 0) {
+            memset(linkedTo, '\0', sizeof(linkedTo));
+            snprintf(linkedTo, sizeof(linkedTo), "Server");
+            memset(temp_buffer, '\0', sizeof(temp_buffer));
+            snprintf(temp_buffer, sizeof(temp_buffer), "*** Linked to Server ***");
+            use_window(chat_win, printInChatWin, temp_buffer);
+        }
+        else if (strncmp(buffer, ".listc", 6) == 0) { 
+            send(client_i.socket, buffer, strlen(buffer), 0);
+            memset(temp_buffer, '\0', sizeof(temp_buffer));
+            int bytes_read = read(client, temp_buffer, BUFFER_SIZE);
+            use_window(chat_win, printInChatWin, temp_buffer);
+        }
+        else if (strncmp(buffer, ".rename", 7) == 0 || strncmp(buffer, ".recharge", 9) == 0 || strncmp(buffer, ".userinfo", 9) == 0) {
+            send(client_i.socket, buffer, strlen(buffer), 0);
+            memset(temp_buffer, '\0', sizeof(temp_buffer));
+            int bytes_read = read(client, temp_buffer, BUFFER_SIZE);
+            use_window(chat_win, printInChatWin, temp_buffer);
+        }
+        else {
+            memset(temp_buffer, '\0', BUFFER_SIZE);
+            snprintf(temp_buffer, BUFFER_SIZE, ".m|%s:%s", linkedTo, buffer);
+            send(client_i.socket, buffer, strlen(temp_buffer), 0);
         }
     }
 

@@ -34,7 +34,7 @@
 //Variables ///////////////////////////////////////////////////////////////////
 
 extern char SERVER[BUFFER_SIZE];
-char query[QUERY_SIZE], *temp = NULL;
+char query[QUERY_SIZE], *temp = NULL, linkedTo[100] = "Server";
 int client, server, line=1, max_width, BUFFER_SEND_SIZE, connected_clients;
 
 //Structs /////////////////////////////////////////////////////////////////////
@@ -75,12 +75,13 @@ unsigned long executeEnumQuery(const char *query);
 int userDBExists(char *search_by, int option);
 CLIENT registerDBUser(CLIENT client);
 void printDBUsers();
-void updateDBUser(char *command);
+char *updateDBUser(char *command);
 void deleteDBUser(char *command);
-void printClientConn(CLIENT_LIST_PTR c_list);
+char *printClientConn(char *buffer);
 CLIENT_LIST_PTR addClientConn(CLIENT_LIST_PTR c_list, CLIENT client);
 CLIENT_LIST_PTR removeClientConn(CLIENT_LIST_PTR c_list, CLIENT client);
 void disconnectAllClients(CLIENT_LIST_PTR c_list);
+int linkedToFunction(char *command);
 void shutdownServer(CLIENT_LIST_PTR c_list);
 int printInChatWin(WINDOW *win, void *arg);
 int clearChatWin(WINDOW *win, void *arg);
@@ -89,6 +90,7 @@ void sendGif(char *buffer, CLIENT client);
 void receiveGif(char *buffer, CLIENT client);
 void *handleClient(void *arg);
 void send_messages(SND_RCV sr, CLIENT_LIST_PTR ptr, char *buffer, char *temp_buffer);
+char *help(char *buffer);
 void *inputWindowManagement(void *arg);
 void *discovery();
 

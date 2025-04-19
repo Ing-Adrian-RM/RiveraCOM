@@ -1,6 +1,7 @@
 {
     "files.associations": {
         "pthread.h": "c",
-        "inet.h": "c"
+        "inet.h": "c",
+        "ncurses.h": "c"
     }
 }
