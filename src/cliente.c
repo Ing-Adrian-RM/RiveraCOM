@@ -185,12 +185,13 @@ void *receive_messages() {
         int bytes_read = read(client, buffer, BUFFER_SIZE);
         use_window(chat_win, printInChatWin, buffer);
         strtok(buffer, ":"); char *message = strtok(NULL, ":");
-        if (strncmp(message, " gif", 4) == 0) receiveGif(message, client_i);
+        if (message != NULL && strncmp(message, " gif", 4) == 0) receiveGif(message, client_i);
         if (bytes_read <= 0) {
+            memset(buffer, '\0', BUFFER_SIZE);
             use_window(chat_win, clearChatWin, buffer);
-            snprintf(buffer, sizeof(buffer), "Server disconnected, closing in 3 seconds...\n");
-            use_window(chat_win, printInChatWin, buffer);
             use_window(chat_win, clearInputWin, buffer);
+            snprintf(buffer, BUFFER_SIZE, "Server disconnected, closing in 3 seconds...\n");
+            use_window(chat_win, printInChatWin, buffer);
             sleep(3); // Wait for 3 seconds
             endwin(); close(client); free(temp);
             pthread_mutex_destroy(&lock);
@@ -403,6 +404,16 @@ int main() {
             memset(temp_buffer, '\0', sizeof(temp_buffer));
             int bytes_read = read(client, temp_buffer, BUFFER_SIZE);
             use_window(chat_win, printInChatWin, temp_buffer);
+            if (strncmp(temp_buffer, "Your user has been deleted", 26) == 0){
+                memset(temp_buffer, '\0', BUFFER_SIZE);
+                snprintf(temp_buffer, BUFFER_SIZE, "Closing in 5 seconds...\n");
+                use_window(chat_win, printInChatWin, buffer);
+                use_window(chat_win, clearInputWin, buffer);
+                sleep(5);
+                endwin(); close(client); free(temp);
+                pthread_mutex_destroy(&lock);
+                exit(0);
+            }
         }
         else {
             memset(temp_buffer, '\0', BUFFER_SIZE);

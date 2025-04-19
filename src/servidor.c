@@ -93,16 +93,17 @@ CLIENT registerDBUser(CLIENT client) {
     }
     else {
         memset(buffer, '\0', BUFFER_SIZE);
-        snprintf(buffer, BUFFER_SIZE, "You are not registered. Please enter a unique username:");
+        snprintf(buffer, BUFFER_SIZE, "You are not registered.\nPlease enter a unique username between 2 to 20 characters without spaces:");
         send(client.socket, buffer, strlen(buffer), 0);
         bytesReceived = 0;
         int name_accepted = 0;
         while (!name_accepted) {
             memset(buffer, '\0', BUFFER_SIZE);
             bytesReceived = read(client.socket, buffer, sizeof(buffer));
-            if (userDBExists(buffer, 0)) {
+            strtok(buffer, ":"); char *token = strtok(NULL, ":");
+            if (userDBExists(token, 0) || strlen(token) < 2 || strlen(token) > 20 || strpbrk(token, " ")) {
                 memset(temp_buffer, '\0', BUFFER_SIZE);
-                snprintf(temp_buffer, sizeof(temp_buffer), "Username already exists. Please enter a unique username:");
+                snprintf(temp_buffer, sizeof(temp_buffer), "Invalid Username.\nPlease enter a unique username between 2 to 20 characters without spaces:");
                 send(client.socket, temp_buffer, strlen(temp_buffer), 0);
             } else {
                 name_accepted = 1;
@@ -193,7 +194,6 @@ char *updateDBUser(char *command, char *output) {
 // deleteDBUsers-> Delete a user from the database
 ///////////////////////////////////////////////////////////////////////////////
 char *deleteDBUser(char *command, char *output) {
-    char buffer[BUFFER_SIZE];
     char temp_buffer[BUFFER_SIZE];
     char user_name[BUFFER_SIZE];
     strtok(command, ":"); char *user = strtok(NULL, ":");
@@ -211,21 +211,31 @@ char *deleteDBUser(char *command, char *output) {
             strncpy(user_name, row[0], BUFFER_SIZE - 1);
             snprintf(query, sizeof(query), "DELETE FROM users WHERE ip='%s'", user);
         } 
-        use_window(chat_win, printInChatWin, query);
         unsigned long result = executeEnumQuery(query);
-        memset(buffer, '\0', BUFFER_SIZE);
         if (result > 0){
             memset(output, '\0', BUFFER_SIZE);
             snprintf(output, BUFFER_SIZE, "User %s deleted from database", user);
+            for (CLIENT_LIST_PTR ptr = c_list; ptr != NULL; ptr = ptr->next) {
+                if (strncmp(ptr->client.name, user_name, strlen(user_name)) == 0) {
+                    memset(temp_buffer, '\0', BUFFER_SIZE);
+                    snprintf(temp_buffer, BUFFER_SIZE, "Your user has been deleted from the server database.\nPlease reconnect and register again.\n");
+                    send(ptr->client.socket, output, strlen(output), 0);
+                }
+            }
             return output;
         } else {
             memset(output, '\0', BUFFER_SIZE);
             snprintf(output, BUFFER_SIZE, "Error deleting user from database");
+            for (CLIENT_LIST_PTR ptr = c_list; ptr != NULL; ptr = ptr->next) {
+                if (strncmp(ptr->client.name, user_name, strlen(user_name)) == 0) {
+                    send(ptr->client.socket, output, strlen(output), 0);
+                }
+            }
             return output;
         }
     } else {
         memset(output, '\0', BUFFER_SIZE);
-        snprintf(buffer, BUFFER_SIZE, "User %.100s not found in database", user_name);
+        snprintf(output, BUFFER_SIZE, "User %.100s not found in database", user_name);
         return output;
     }
 }
