@@ -11,13 +11,18 @@
 // executeDataQuery-> Execute a query that returns data
 ///////////////////////////////////////////////////////////////////////////////
 MYSQL_RES* executeDataQuery(const char *query) {
+    char temp_buffer[BUFFER_SIZE];
     conn = mysql_init(NULL);
     if (!mysql_real_connect(conn, LOCAL_HOST, USER, PASSWORD, DATABASE, 0, NULL, 0)) {
-        fprintf(stderr, "Connection failed: %s\n", mysql_error(conn));
+        memset(temp_buffer, '\0', BUFFER_SIZE);
+        snprintf(temp_buffer, BUFFER_SIZE, "Connection failed: %s", mysql_error(conn));
+        use_window(chat_win, printInChatWin, temp_buffer);
         return NULL;
     }
     if (mysql_query(conn, query)) {
-        fprintf(stderr, "Query error: %s\n", mysql_error(conn));
+        memset(temp_buffer, '\0', BUFFER_SIZE);
+        snprintf(temp_buffer, BUFFER_SIZE, "Error executing query: %s\n", mysql_error(conn));
+        use_window(chat_win, printInChatWin, temp_buffer);
         return NULL;
     }
     res = mysql_store_result(conn);
@@ -29,13 +34,18 @@ MYSQL_RES* executeDataQuery(const char *query) {
 // executeDataQuery-> Execute a query that return affected rows
 ///////////////////////////////////////////////////////////////////////////////
 unsigned long executeEnumQuery(const char *query) {
+    char temp_buffer[BUFFER_SIZE];
     conn = mysql_init(NULL);
     if (!mysql_real_connect(conn, LOCAL_HOST, USER, PASSWORD, DATABASE, 0, NULL, 0)) {
-        fprintf(stderr, "Connection failed: %s\n", mysql_error(conn));
+        memset(temp_buffer, '\0', BUFFER_SIZE);
+        snprintf(temp_buffer, BUFFER_SIZE, "Connection failed: %s", mysql_error(conn));
+        use_window(chat_win, printInChatWin, temp_buffer);
         return 0;
     }
     if (mysql_query(conn, query)) {
-        fprintf(stderr, "Query error: %s\n", mysql_error(conn));
+        memset(temp_buffer, '\0', BUFFER_SIZE);
+        snprintf(temp_buffer, BUFFER_SIZE, "Error executing query: %s\n", mysql_error(conn));
+        use_window(chat_win, printInChatWin, temp_buffer);
         return 0;
     }
     unsigned long affected = mysql_affected_rows(conn);
@@ -201,6 +211,7 @@ char *deleteDBUser(char *command, char *output) {
             strncpy(user_name, row[0], BUFFER_SIZE - 1);
             snprintf(query, sizeof(query), "DELETE FROM users WHERE ip='%s'", user);
         } 
+        use_window(chat_win, printInChatWin, query);
         unsigned long result = executeEnumQuery(query);
         memset(buffer, '\0', BUFFER_SIZE);
         if (result > 0){
