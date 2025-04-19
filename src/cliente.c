@@ -98,7 +98,7 @@ void sendGif(char *buffer, CLIENT client) {
     struct stat file_info;
     if (!stat(file_path, &file_info)) {
         memset(temp_buffer, '\0', sizeof(temp_buffer));
-        snprintf(temp_buffer, BUFFER_SIZE, "%s+%lu", buffer, file_info.st_size);
+        snprintf(temp_buffer, BUFFER_SIZE, ".m|%s:%s+%lu", linkedTo, buffer, file_info.st_size);
         send(client.socket, temp_buffer, strlen(temp_buffer), 0);
 
         FILE *file = fopen(file_path, "rb");
@@ -122,7 +122,7 @@ void sendGif(char *buffer, CLIENT client) {
         }
         if (total_bytes_send == file_info.st_size) {
             memset(temp_buffer, '\0', BUFFER_SIZE);
-            snprintf(temp_buffer, BUFFER_SIZE, "gif %.100s sent. Total bytes sent: %zu", gif_name, total_bytes_send);
+            snprintf(temp_buffer, BUFFER_SIZE, "Me: gif %.100s sent. Total bytes sent: %zu", gif_name, total_bytes_send);
             use_window(chat_win, printInChatWin, temp_buffer);
         } else {
             memset(temp_buffer, '\0', BUFFER_SIZE);
@@ -184,9 +184,8 @@ void *receive_messages() {
         memset(buffer, '\0', BUFFER_SIZE);
         int bytes_read = read(client, buffer, BUFFER_SIZE);
         use_window(chat_win, printInChatWin, buffer);
-        strtok(buffer, " "); char *message = strtok(NULL, " ");
+        strtok(buffer, ":"); char *message = strtok(NULL, ":");
         if (strncmp(message, " gif", 4) == 0) receiveGif(message, client_i);
-        use_window(chat_win, printInChatWin, buffer);
         if (bytes_read <= 0) {
             use_window(chat_win, clearChatWin, buffer);
             snprintf(buffer, sizeof(buffer), "Server disconnected, closing in 3 seconds...\n");
@@ -408,7 +407,8 @@ int main() {
         else {
             memset(temp_buffer, '\0', BUFFER_SIZE);
             snprintf(temp_buffer, BUFFER_SIZE, ".m|%s:%s", linkedTo, buffer);
-            send(client_i.socket, buffer, strlen(temp_buffer), 0);
+            send(client_i.socket, temp_buffer, strlen(temp_buffer), 0);
+            if (strncmp(buffer, "gif", 3) == 0) sendGif(buffer, client_i);
         }
     }
 

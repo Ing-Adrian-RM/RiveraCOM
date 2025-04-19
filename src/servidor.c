@@ -521,7 +521,7 @@ void receiveGif(char *buffer, CLIENT client) {
     }
     fclose(file);
     memset(temp_buffer, '\0', BUFFER_SIZE);
-    snprintf(temp_buffer, BUFFER_SIZE, "gif %.100s received. Total bytes transmited: %zu", gif_name, total_bytes_received);
+    snprintf(temp_buffer, BUFFER_SIZE, "Server: gif %.100s received. Total bytes transmited: %zu", gif_name, total_bytes_received);
     use_window(chat_win, printInChatWin, temp_buffer);
 }
 
@@ -598,14 +598,14 @@ void *handleClient(void *arg) {
             memset(temp_buffer, '\0', sizeof(temp_buffer));
             snprintf(temp_buffer, BUFFER_SIZE, "%.100s: %.900s", client.name, message);
             int gif = 0;
-            if (strncmp(message, "gif", 3) == 0) {receiveGif(buffer, client); gif = 1;}
-            if (strncmp(link, "Server", 6) == 0) {
-                use_window(chat_win, printInChatWin, temp_buffer);
-            }else if (strncmp(linkedTo, "Broadcast", 9) == 0) {
+            if (strncmp(message, "gif", 3) == 0) {receiveGif(message, client); gif = 1;}
+            else if (strncmp(linkedTo, "Broadcast", 9) == 0) {
                 for (CLIENT_LIST_PTR ptr = c_list; ptr != NULL; ptr = ptr->next) {
                     send(ptr->client.socket, temp_buffer, strlen(temp_buffer), 0);
                     if (gif) sendGif(message, ptr->client);
                 }
+            } else if (strncmp(link, "Server", 6) == 0) {
+                use_window(chat_win, printInChatWin, temp_buffer);  
             } else {
                 int found = 0;
                 for (CLIENT_LIST_PTR ptr = c_list; ptr != NULL; ptr = ptr->next) {
