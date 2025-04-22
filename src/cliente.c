@@ -186,17 +186,16 @@ void *receive_messages() {
         use_window(chat_win, printInChatWin, buffer);
         strtok(buffer, ":"); char *message = strtok(NULL, ":");
         if (message != NULL && strncmp(message, " gif", 4) == 0) receiveGif(message, client_i);
-        if (bytes_read <= 0 && !(errno == EWOULDBLOCK || errno == EAGAIN)) {
+        if (bytes_read <= 0) {
             memset(buffer, '\0', BUFFER_SIZE);
             use_window(chat_win, clearChatWin, buffer);
             use_window(chat_win, clearInputWin, buffer);
             snprintf(buffer, BUFFER_SIZE, "Server disconnected, closing in 3 seconds...\n");
             use_window(chat_win, printInChatWin, buffer);
             sleep(3); // Wait for 3 seconds
-            endwin(); close(client); free(temp); sem_destroy(&sem);
+            endwin(); close(client); free(temp);
             exit(0);
         }
-        if (pause) sem_wait(&sem);
     }
     return NULL;
 }
@@ -274,25 +273,14 @@ char *help(char *buffer) {
     return buffer;
 }
 
-///////////////////////////////////////////////////////////////////////////////
-// setBlocking-> Configure the socket as blocking or non-blocking
-///////////////////////////////////////////////////////////////////////////////
-void set_blocking(int option) {
-    int flags = fcntl(client, F_GETFL, 0);
-    if (option) fcntl(client, F_SETFL, flags & ~O_NONBLOCK);
-    else fcntl(client, F_SETFL, flags | O_NONBLOCK);
-}
-
 
 ///////////////////////////////////////////////////////////////////////////////
 // setup-> 
 ///////////////////////////////////////////////////////////////////////////////
 void setup() {
     discoverServer();
-    sem_init(&sem, 0, 0);
 
     // Create socket
-    
     client = socket(AF_INET, SOCK_STREAM, 0);
     if (client == -1) {
         perror("Error creating socket");
@@ -320,7 +308,6 @@ void setup() {
     client_i.socket = client;
     inet_ntop(AF_INET, &client_addr.sin_addr, client_i.ip, INET_ADDRSTRLEN);
     client_i.name[0] = '\0';
-    set_blocking(0);
 
     // Initialize ncurses
     initscr();
@@ -349,7 +336,6 @@ void setup() {
     use_window(chat_win, printInChatWin, buffer);
 
     // Create a thread to receive messages from the server
-    pthread_t reception_thread;
     pthread_create(&reception_thread, NULL, receive_messages, NULL);
     pthread_detach(reception_thread);
 }
@@ -369,19 +355,20 @@ int main() {
         snprintf(temp_buffer, sizeof(temp_buffer), "Me: %s", buffer);
         use_window(chat_win, printInChatWin, temp_buffer);
         
-        if (strncmp(buffer, ".close", 6) == 0) { endwin(); close(client); free(temp); exit(0); }
+        if (strncmp(buffer, ".close", 6) == 0) {
+            endwin(); close(client); free(temp);
+            exit(0);
+        }
         else if (strncmp(buffer, ".clear", 6) == 0) use_window(chat_win, clearChatWin, 0);
         else if (strncmp(buffer, ".help", 5) == 0) {
             memset(temp_buffer, '\0', BUFFER_SIZE);
             use_window(chat_win, printInChatWin, help(temp_buffer));
         }
         else if (strncmp(buffer, ".link", 5) == 0) {
-            th_pause = true; set_blocking(1);
             strtok(buffer, " "); char *user_name = strtok(NULL, " ");
             send(client_i.socket, buffer, strlen(buffer), 0);
             memset(temp_buffer, '\0', sizeof(temp_buffer));
             int bytes_read = read(client, temp_buffer, BUFFER_SIZE);
-            th_pause = false; set_blocking(0); sem_post(&sem);
             if (strncmp(temp_buffer, "YES", 3) == 0) {
                 memset(linkedTo, '\0', sizeof(linkedTo));
                 snprintf(linkedTo, sizeof(linkedTo), "%s", user_name);
@@ -402,30 +389,29 @@ int main() {
             use_window(chat_win, printInChatWin, temp_buffer);
         }
         else if (strncmp(buffer, ".listc", 6) == 0) { 
-            th_pause = true; set_blocking(1);
             send(client_i.socket, buffer, strlen(buffer), 0);
             memset(temp_buffer, '\0', sizeof(temp_buffer));
             int bytes_read = read(client, temp_buffer, BUFFER_SIZE);
             use_window(chat_win, printInChatWin, temp_buffer);
-            th_pause = false; set_blocking(0); sem_post(&sem);
         }
         else if (strncmp(buffer, ".rename", 7) == 0 || strncmp(buffer, ".recharge", 9) == 0 || strncmp(buffer, ".userinfo", 9) == 0 || strncmp(buffer, ".deleteuser", 9) == 0) {
-            th_pause = true; set_blocking(1);
+            pthread_kill(reception_thread, SIGSTOP);
             send(client_i.socket, buffer, strlen(buffer), 0);
             memset(temp_buffer, '\0', sizeof(temp_buffer));
-            int bytes_read = read(client, temp_buffer, BUFFER_SIZE);        
-            th_pause = false; set_blocking(0); sem_post(&sem);
+            int bytes_read = read(client, temp_buffer, BUFFER_SIZE);
             use_window(chat_win, printInChatWin, temp_buffer);
+            pthread_kill(reception_thread, SIGCONT);
             if (strncmp(temp_buffer, "User deleted from database", 26) == 0){
                 memset(temp_buffer, '\0', BUFFER_SIZE);
                 snprintf(temp_buffer, BUFFER_SIZE, "Closing in 5 seconds...\n");
                 use_window(chat_win, printInChatWin, buffer);
                 use_window(chat_win, clearInputWin, buffer);
                 sleep(5);
-                endwin(); close(client); free(temp); sem_destroy(&sem);
+                endwin(); close(client); free(temp);
                 exit(0);
             }
-        } else {
+        }
+        else {
             memset(temp_buffer, '\0', BUFFER_SIZE);
             snprintf(temp_buffer, BUFFER_SIZE, ".m|%s:%s", linkedTo, buffer);
             send(client_i.socket, temp_buffer, strlen(temp_buffer), 0);
@@ -435,6 +421,6 @@ int main() {
 
     if (temp != NULL) free(temp);
     if (client >= 0) close(client);
-    endwin(); sem_destroy(&sem);  
+    endwin();    
     return 0;
 }

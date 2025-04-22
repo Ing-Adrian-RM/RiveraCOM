@@ -19,27 +19,24 @@
 
 //Includes ////////////////////////////////////////////////////////////////////
 
-#include <stdio.h>          // Standard Input/Output library
-#include <stdlib.h>         // Standard library for memory allocation, process control, etc.
-#include <string.h>         // String handling library
-#include <unistd.h>         // POSIX API for miscellaneous functions, including sleep
-#include <arpa/inet.h>      // Library for internet operations (e.g., sockets)
-#include <pthread.h>        // POSIX threads library
-#include <mysql/mysql.h>    // MySQL client library
-#include <ncurses.h>        // NCurses library for terminal handling
-#include <ifaddrs.h>        // Library for network interface address handling
-#include <sys/stat.h>       // Library for file and directory operations
-#include <semaphore.h>      // POSIX semaphore library
-#include <fcntl.h>          // Library for file control options
-#include <sys/socket.h>     // Library for socket programming
-#include <errno.h>          // Library for error handling
+#include <stdio.h>      // Standard Input/Output library
+#include <stdlib.h>     // Standard library for memory allocation, process control, etc.
+#include <string.h>     // String manipulation functions
+#include <unistd.h>     // POSIX API for system calls
+#include <arpa/inet.h>  // Functions for internet operations (e.g., sockets)
+#include <pthread.h>    // POSIX threads for multithreading
+#include <mysql/mysql.h> // MySQL client library for database operations
+#include <ncurses.h>    // Library for terminal-based user interfaces
+#include <ifaddrs.h>    // Interface address structures and functions
+#include <sys/stat.h>   // File status and permissions
+#include <signal.h>     // Signal handling
 
 
 //Variables ///////////////////////////////////////////////////////////////////
 
 extern char SERVER[BUFFER_SIZE];
 char query[QUERY_SIZE], *temp = NULL, linkedTo[100] = "Server";
-int client, server, line=1, max_width, BUFFER_SEND_SIZE, connected_clients;
+int client, server, line=1, max_width, BUFFER_SEND_SIZE;
 
 //Structs /////////////////////////////////////////////////////////////////////
 
@@ -62,10 +59,9 @@ MYSQL_ROW row;
 CLIENT client_i;
 CLIENT_LIST_PTR c_list;
 WINDOW *chat_win, *input_win;
-sem_t sem;
 struct sockaddr_in server_addr, client_addr;
 socklen_t addr_size = sizeof(client_addr);
-bool th_pause = false;
+pthread_t reception_thread;
 
 // Functions //////////////////////////////////////////////////////////////////
 
@@ -96,7 +92,6 @@ void *discovery();
 // Functions of client //
 void *receive_messages();
 void discoverServer();
-void set_blocking(int option);
 
 // Functions for both //
 void setup();
