@@ -19,16 +19,19 @@
 
 //Includes ////////////////////////////////////////////////////////////////////
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <arpa/inet.h>
-#include <pthread.h>
-#include <mysql/mysql.h>
-#include <ncurses.h>
-#include <ifaddrs.h>
-#include <sys/stat.h>
+#include <stdio.h>          // Standard Input/Output library
+#include <stdlib.h>         // Standard library for memory allocation, process control, etc.
+#include <string.h>         // String handling library
+#include <unistd.h>         // POSIX API for miscellaneous functions, including sleep
+#include <arpa/inet.h>      // Library for internet operations (e.g., sockets)
+#include <pthread.h>        // POSIX threads library
+#include <mysql/mysql.h>    // MySQL client library
+#include <ncurses.h>        // NCurses library for terminal handling
+#include <ifaddrs.h>        // Library for network interface address handling
+#include <sys/stat.h>       // Library for file and directory operations
+#include <semaphore.h>      // POSIX semaphore library
+#include <fcntl.h>          // Library for file control options
+#include <sys/socket.h>     // Library for socket programming
 
 
 //Variables ///////////////////////////////////////////////////////////////////
@@ -58,9 +61,10 @@ MYSQL_ROW row;
 CLIENT client_i;
 CLIENT_LIST_PTR c_list;
 WINDOW *chat_win, *input_win;
-pthread_mutex_t lock;
+sem_t sem;
 struct sockaddr_in server_addr, client_addr;
 socklen_t addr_size = sizeof(client_addr);
+bool th_pause = false;
 
 // Functions //////////////////////////////////////////////////////////////////
 
@@ -91,6 +95,7 @@ void *discovery();
 // Functions of client //
 void *receive_messages();
 void discoverServer();
+void set_blocking(int option);
 
 // Functions for both //
 void setup();

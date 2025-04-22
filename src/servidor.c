@@ -170,13 +170,10 @@ char *updateDBUser(char *command, char *output) {
         else if (strncmp(variable, "balance", 7) == 0) snprintf(query, sizeof(query), "UPDATE users SET balance='%s' WHERE %s='%s'", value, switcher, identificator);
         else if (strncmp(variable, "uploaded", 8) == 0) snprintf(query, sizeof(query), "UPDATE users SET uploaded='%s' WHERE %s='%s'", value, switcher, identificator);
         else if (strncmp(variable, "downloaded", 10) == 0) snprintf(query, sizeof(query), "UPDATE users SET downloaded='%s' WHERE %s='%s'", value, switcher, identificator);
-        
         unsigned long result = executeEnumQuery(query);
-
-        memset(buffer, '\0', BUFFER_SIZE);
         if (result >= 0){
             memset(output, '\0', BUFFER_SIZE);
-            snprintf(output, BUFFER_SIZE, "%s data of user %s updated in database.", variable, identificator);
+            snprintf(output, BUFFER_SIZE, "Data section '%s' of user %s updated in database.", variable, identificator);
             return output;
         } 
         else {
@@ -344,7 +341,6 @@ void shutdownServer(CLIENT_LIST_PTR c_list) {
     }
 
     disconnectAllClients(c_list);
-    pthread_mutex_destroy(&lock);
     endwin();
     exit(EXIT_SUCCESS);
 }
@@ -574,29 +570,34 @@ void *handleClient(void *arg) {
             strtok(buffer, " "); char *token = strtok(NULL, " ");
             memset(temp_buffer, '\0', sizeof(temp_buffer));
             snprintf(temp_buffer, BUFFER_SIZE, ".updatedb name:%.100s*name+%s", client.name, token);
-            send(client.socket, updateDBUser(temp_buffer,output), strlen(output), 0);
+            updateDBUser(temp_buffer,output);
+            send(client.socket, output, strlen(output), 0);
         }
         else if (strncmp(buffer, ".recharge", 9) == 0) {
             strtok(buffer, " "); char *token = strtok(NULL, " ");
             memset(temp_buffer, '\0', sizeof(temp_buffer));
             snprintf(temp_buffer, BUFFER_SIZE, ".updatedb name:%.100s*balance+%s", client.name, token);
-            send(client.socket, updateDBUser(temp_buffer,output), strlen(output), 0);
+            updateDBUser(temp_buffer,output);
+            send(client.socket, output, strlen(output), 0);
         }
         else if (strncmp(buffer, ".deleteuser", 9) == 0) {
             memset(temp_buffer, '\0', sizeof(temp_buffer));
             snprintf(temp_buffer, BUFFER_SIZE, ".deletedb name:%.100s", client.name);
-            send(client.socket, deleteDBUser(temp_buffer,output), strlen(output), 0);
+            deleteDBUser(temp_buffer,output);
+            send(client.socket, output, strlen(output), 0);
         }
         else if (strncmp(buffer, ".userinfo", 6) == 0) {
+            memset(query, '\0', sizeof(query));
             snprintf(query, sizeof(query), "SELECT * FROM users WHERE name='%.100s'", client.name);
             res = executeDataQuery(query);
-            if (res == NULL) {
+            row = mysql_fetch_row(res);
+            if (res != NULL) {
                 memset(temp_buffer, '\0', sizeof(temp_buffer));
                 snprintf(temp_buffer, BUFFER_SIZE, "IP: %s, Name: %s, Balance: %s, Uploaded: %s, Downloaded: %s\n", row[0], row[1], row[2], row[3], row[4]);
                 send(client.socket, temp_buffer, strlen(temp_buffer), 0);
             } else {
                 memset(temp_buffer, '\0', sizeof(temp_buffer));
-                snprintf(temp_buffer, BUFFER_SIZE, "Error executing query: %s\n", mysql_error(conn));
+                snprintf(temp_buffer, BUFFER_SIZE, "Error executing query");
                 send(client.socket, temp_buffer, strlen(temp_buffer), 0);
             }
         } else if ((strncmp(buffer, ".m", 2) == 0)) {
