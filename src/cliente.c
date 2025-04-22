@@ -186,7 +186,7 @@ void *receive_messages() {
         use_window(chat_win, printInChatWin, buffer);
         strtok(buffer, ":"); char *message = strtok(NULL, ":");
         if (message != NULL && strncmp(message, " gif", 4) == 0) receiveGif(message, client_i);
-        if (bytes_read <= 0) {
+        if (bytes_read <= 0 && !(errno == EWOULDBLOCK || errno == EAGAIN)) {
             memset(buffer, '\0', BUFFER_SIZE);
             use_window(chat_win, clearChatWin, buffer);
             use_window(chat_win, clearInputWin, buffer);
@@ -299,9 +299,6 @@ void setup() {
         exit(EXIT_FAILURE);
     }
 
-    // Set socket options like non-blocking
-    set_blocking(0);
-
     // Configure the server address
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(PORT);
@@ -323,6 +320,7 @@ void setup() {
     client_i.socket = client;
     inet_ntop(AF_INET, &client_addr.sin_addr, client_i.ip, INET_ADDRSTRLEN);
     client_i.name[0] = '\0';
+    set_blocking(0);
 
     // Initialize ncurses
     initscr();

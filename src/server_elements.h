@@ -32,6 +32,7 @@
 #include <semaphore.h>      // POSIX semaphore library
 #include <fcntl.h>          // Library for file control options
 #include <sys/socket.h>     // Library for socket programming
+#include <errno.h>          // Library for error handling
 
 
 //Variables ///////////////////////////////////////////////////////////////////
