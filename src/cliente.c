@@ -194,6 +194,7 @@ void *receive_messages() {
             use_window(chat_win, printInChatWin, buffer);
             sleep(3); // Wait for 3 seconds
             endwin(); close(client); free(temp);
+            pthread_mutex_destroy(&lock);
             exit(0);
         }
     }
@@ -280,6 +281,8 @@ char *help(char *buffer) {
 void setup() {
     discoverServer();
 
+    pthread_mutex_init(&lock, NULL);
+
     // Create socket
     client = socket(AF_INET, SOCK_STREAM, 0);
     if (client == -1) {
@@ -336,6 +339,7 @@ void setup() {
     use_window(chat_win, printInChatWin, buffer);
 
     // Create a thread to receive messages from the server
+    pthread_t reception_thread;
     pthread_create(&reception_thread, NULL, receive_messages, NULL);
     pthread_detach(reception_thread);
 }
@@ -357,6 +361,7 @@ int main() {
         
         if (strncmp(buffer, ".close", 6) == 0) {
             endwin(); close(client); free(temp);
+            pthread_mutex_destroy(&lock);
             exit(0);
         }
         else if (strncmp(buffer, ".clear", 6) == 0) use_window(chat_win, clearChatWin, 0);
@@ -395,12 +400,10 @@ int main() {
             use_window(chat_win, printInChatWin, temp_buffer);
         }
         else if (strncmp(buffer, ".rename", 7) == 0 || strncmp(buffer, ".recharge", 9) == 0 || strncmp(buffer, ".userinfo", 9) == 0 || strncmp(buffer, ".deleteuser", 9) == 0) {
-            pthread_kill(reception_thread, SIGSTOP);
             send(client_i.socket, buffer, strlen(buffer), 0);
             memset(temp_buffer, '\0', sizeof(temp_buffer));
             int bytes_read = read(client, temp_buffer, BUFFER_SIZE);
             use_window(chat_win, printInChatWin, temp_buffer);
-            pthread_kill(reception_thread, SIGCONT);
             if (strncmp(temp_buffer, "User deleted from database", 26) == 0){
                 memset(temp_buffer, '\0', BUFFER_SIZE);
                 snprintf(temp_buffer, BUFFER_SIZE, "Closing in 5 seconds...\n");
@@ -408,6 +411,7 @@ int main() {
                 use_window(chat_win, clearInputWin, buffer);
                 sleep(5);
                 endwin(); close(client); free(temp);
+                pthread_mutex_destroy(&lock);
                 exit(0);
             }
         }
@@ -421,6 +425,7 @@ int main() {
 
     if (temp != NULL) free(temp);
     if (client >= 0) close(client);
+    pthread_mutex_destroy(&lock);
     endwin();    
     return 0;
 }
