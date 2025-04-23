@@ -554,17 +554,18 @@ void *handleClient(void *arg) {
         if (strncmp(buffer, ".link", 5) == 0) {
             if (linkedToFunction(buffer,output) != NULL) {
                 memset(buffer, '\0', sizeof(buffer));
-                snprintf(buffer, BUFFER_SIZE, "YES");
+                snprintf(buffer, BUFFER_SIZE, "Authorized link");
                 send(client.socket, buffer, strlen(buffer), 0);
             } else {
                 memset(buffer, '\0', sizeof(buffer));
-                snprintf(buffer, BUFFER_SIZE, "NO");
+                snprintf(buffer, BUFFER_SIZE, "User not available");
                 send(client.socket, buffer, strlen(buffer), 0);
             }
         }
         else if (strncmp(buffer, ".listc", 6) == 0) {
             memset(temp_buffer, '\0', sizeof(temp_buffer));
-            send(client.socket, printClientConn(temp_buffer), strlen(temp_buffer), 0);
+            printClientConn(temp_buffer);
+            send(client.socket, temp_buffer, strlen(temp_buffer), 0);
         }
         else if (strncmp(buffer, ".rename", 6) == 0) {
             strtok(buffer, " "); char *token = strtok(NULL, " ");
@@ -717,7 +718,6 @@ void *inputWindowManagement(void *arg)
 // discovery-> This function listens for discovery messages and responds 
 // with the server's IP address
 ///////////////////////////////////////////////////////////////////////////////
-
 void *discovery() {
     int sock;
     struct sockaddr_in server_addr, client_addr, local_addr;

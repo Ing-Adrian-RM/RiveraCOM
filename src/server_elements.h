@@ -25,7 +25,7 @@
 #include <unistd.h>     // POSIX API for system calls
 #include <arpa/inet.h>  // Functions for internet operations (e.g., sockets)
 #include <pthread.h>    // POSIX threads for multithreading
-#include <mysql/mysql.h> // MySQL client library for database operations
+#include <mysql/mysql.h>// MySQL client library for database operations
 #include <ncurses.h>    // Library for terminal-based user interfaces
 #include <ifaddrs.h>    // Interface address structures and functions
 #include <sys/stat.h>   // File status and permissions
@@ -35,7 +35,7 @@
 //Variables ///////////////////////////////////////////////////////////////////
 
 extern char SERVER[BUFFER_SIZE];
-char query[QUERY_SIZE], *temp = NULL, linkedTo[100] = "Server";
+char query[QUERY_SIZE], *temp = NULL, linkedTo[100] = "Server", SERVER[BUFFER_SIZE];
 int client, server, line=1, max_width, BUFFER_SEND_SIZE;
 
 //Structs /////////////////////////////////////////////////////////////////////

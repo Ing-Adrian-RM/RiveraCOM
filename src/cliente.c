@@ -6,8 +6,6 @@
 
 #include "server_elements.h"
 
-char SERVER[BUFFER_SIZE];
-
 ///////////////////////////////////////////////////////////////////////////////
 // print_in_chatwin-> 
 ///////////////////////////////////////////////////////////////////////////////
@@ -175,6 +173,7 @@ void receiveGif(char *buffer, CLIENT client) {
     snprintf(temp_buffer, BUFFER_SIZE, "Me: gif %.100s received. Total bytes transmited: %zu", gif_name, total_bytes_received);
     use_window(chat_win, printInChatWin, temp_buffer);
 }
+
 ///////////////////////////////////////////////////////////////////////////////
 // *receive_messages-> 
 ///////////////////////////////////////////////////////////////////////////////
@@ -192,9 +191,7 @@ void *receive_messages() {
             use_window(chat_win, clearInputWin, buffer);
             snprintf(buffer, BUFFER_SIZE, "Server disconnected, closing in 3 seconds...\n");
             use_window(chat_win, printInChatWin, buffer);
-            sleep(3); // Wait for 3 seconds
-            endwin(); close(client); free(temp);
-            exit(0);
+            sleep(3); close(client); free(temp); endwin(); exit(0);
         }
     }
     return NULL;
@@ -364,23 +361,6 @@ int main() {
             memset(temp_buffer, '\0', BUFFER_SIZE);
             use_window(chat_win, printInChatWin, help(temp_buffer));
         }
-        else if (strncmp(buffer, ".link", 5) == 0) {
-            strtok(buffer, " "); char *user_name = strtok(NULL, " ");
-            send(client_i.socket, buffer, strlen(buffer), 0);
-            memset(temp_buffer, '\0', sizeof(temp_buffer));
-            int bytes_read = read(client, temp_buffer, BUFFER_SIZE);
-            if (strncmp(temp_buffer, "YES", 3) == 0) {
-                memset(linkedTo, '\0', sizeof(linkedTo));
-                snprintf(linkedTo, sizeof(linkedTo), "%s", user_name);
-                memset(temp_buffer, '\0', sizeof(temp_buffer));
-                snprintf(temp_buffer, sizeof(temp_buffer), "*** Linked to %s ***", user_name);
-                use_window(chat_win, printInChatWin, temp_buffer);
-            } else {
-                memset(temp_buffer, '\0', sizeof(temp_buffer));
-                snprintf(temp_buffer, sizeof(temp_buffer), "User not available.");
-                use_window(chat_win, printInChatWin, temp_buffer);
-            }
-        }
         else if (strncmp(buffer, ".unlink", 7) == 0) {
             memset(linkedTo, '\0', sizeof(linkedTo));
             snprintf(linkedTo, sizeof(linkedTo), "Server");
@@ -388,27 +368,27 @@ int main() {
             snprintf(temp_buffer, sizeof(temp_buffer), "*** Linked to Server ***");
             use_window(chat_win, printInChatWin, temp_buffer);
         }
-        else if (strncmp(buffer, ".listc", 6) == 0) { 
-            send(client_i.socket, buffer, strlen(buffer), 0);
-            memset(temp_buffer, '\0', sizeof(temp_buffer));
-            int bytes_read = read(client, temp_buffer, BUFFER_SIZE);
-            use_window(chat_win, printInChatWin, temp_buffer);
-        }
-        else if (strncmp(buffer, ".rename", 7) == 0 || strncmp(buffer, ".recharge", 9) == 0 || strncmp(buffer, ".userinfo", 9) == 0 || strncmp(buffer, ".deleteuser", 9) == 0) {
+        else if (strncmp(buffer, ".rename", 7) == 0 || strncmp(buffer, ".recharge", 9) == 0 || strncmp(buffer, ".userinfo", 9) == 0 
+        || strncmp(buffer, ".deleteuser", 9) == 0 || strncmp(buffer, ".listc", 6) == 0 || strncmp(buffer, ".link", 5) == 0) {
             pthread_kill(reception_thread, SIGSTOP);
             send(client_i.socket, buffer, strlen(buffer), 0);
             memset(temp_buffer, '\0', sizeof(temp_buffer));
             int bytes_read = read(client, temp_buffer, BUFFER_SIZE);
-            use_window(chat_win, printInChatWin, temp_buffer);
             pthread_kill(reception_thread, SIGCONT);
+            use_window(chat_win, printInChatWin, temp_buffer);
             if (strncmp(temp_buffer, "User deleted from database", 26) == 0){
                 memset(temp_buffer, '\0', BUFFER_SIZE);
                 snprintf(temp_buffer, BUFFER_SIZE, "Closing in 5 seconds...\n");
                 use_window(chat_win, printInChatWin, buffer);
                 use_window(chat_win, clearInputWin, buffer);
-                sleep(5);
-                endwin(); close(client); free(temp);
-                exit(0);
+                sleep(5); endwin(); close(client); free(temp); exit(0);
+            } else if (strncmp(temp_buffer, "Authorized link", 15) == 0) {
+                strtok(buffer, " "); char *user_name = strtok(NULL, " ");
+                memset(linkedTo, '\0', sizeof(linkedTo));
+                snprintf(linkedTo, sizeof(linkedTo), "%s", user_name);
+                memset(temp_buffer, '\0', sizeof(temp_buffer));
+                snprintf(temp_buffer, sizeof(temp_buffer), "*** Linked to %s ***", user_name);
+                use_window(chat_win, printInChatWin, temp_buffer);
             }
         }
         else {
