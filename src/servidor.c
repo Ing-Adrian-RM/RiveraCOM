@@ -551,7 +551,36 @@ void *handleClient(void *arg) {
             use_window(chat_win, printInChatWin, buffer);
             break;
         }
-        if (strncmp(buffer, ".link", 5) == 0) {
+        if ((strncmp(buffer, ".m", 2) == 0)) {
+            strtok(buffer, ":"); char *message = strtok(NULL, ":");
+            strtok(buffer, "|"); char *link = strtok(NULL, "|");
+            memset(temp_buffer, '\0', sizeof(temp_buffer));
+            snprintf(temp_buffer, BUFFER_SIZE, "%.100s: %.900s", client.name, message);
+            int gif = 0;
+            if (strncmp(link, "Server", 6) == 0) use_window(chat_win, printInChatWin, temp_buffer);  
+            else if (strncmp(message, " gif", 4) == 0) {receiveGif(message, client); gif = 1;}
+            else if (strncmp(linkedTo, "Broadcast", 9) == 0) {
+                for (CLIENT_LIST_PTR ptr = c_list; ptr != NULL; ptr = ptr->next) {
+                    send(ptr->client.socket, temp_buffer, strlen(temp_buffer), 0);
+                    if (gif) sendGif(message, ptr->client);
+                }
+            } else {
+                int found = 0;
+                for (CLIENT_LIST_PTR ptr = c_list; ptr != NULL; ptr = ptr->next) {
+                    if (strncmp(ptr->client.name, link, strlen(link)) == 0) {
+                        send(ptr->client.socket, temp_buffer, strlen(temp_buffer), 0);
+                        if (gif) sendGif(message, ptr->client);
+                        found = 1;
+                    }
+                }
+                if (!found) {
+                    memset(temp_buffer, '\0', sizeof(temp_buffer));
+                    snprintf(temp_buffer, BUFFER_SIZE, "Server: The user is no longer available.");
+                    send(client.socket, temp_buffer, strlen(temp_buffer), 0);
+                }
+            }
+        }
+        else if (strncmp(buffer, ".link", 5) == 0) {
             if (linkedToFunction(buffer,output) != NULL) {
                 memset(buffer, '\0', sizeof(buffer));
                 snprintf(buffer, BUFFER_SIZE, "Authorized link");
@@ -601,35 +630,6 @@ void *handleClient(void *arg) {
                 snprintf(temp_buffer, BUFFER_SIZE, "Error executing query");
                 send(client.socket, temp_buffer, strlen(temp_buffer), 0);
             }
-        } else if ((strncmp(buffer, ".m", 2) == 0)) {
-            strtok(buffer, ":"); char *message = strtok(NULL, ":");
-            strtok(buffer, "|"); char *link = strtok(NULL, "|");
-            memset(temp_buffer, '\0', sizeof(temp_buffer));
-            snprintf(temp_buffer, BUFFER_SIZE, "%.100s: %.900s", client.name, message);
-            int gif = 0;
-            if (strncmp(message, " gif", 4) == 0) {receiveGif(message, client); gif = 1;}
-            else if (strncmp(linkedTo, "Broadcast", 9) == 0) {
-                for (CLIENT_LIST_PTR ptr = c_list; ptr != NULL; ptr = ptr->next) {
-                    send(ptr->client.socket, temp_buffer, strlen(temp_buffer), 0);
-                    if (gif) sendGif(message, ptr->client);
-                }
-            } else if (strncmp(link, "Server", 6) == 0) {
-                use_window(chat_win, printInChatWin, temp_buffer);  
-            } else {
-                int found = 0;
-                for (CLIENT_LIST_PTR ptr = c_list; ptr != NULL; ptr = ptr->next) {
-                    if (strncmp(ptr->client.name, link, strlen(link)) == 0) {
-                        send(ptr->client.socket, temp_buffer, strlen(temp_buffer), 0);
-                        if (gif) sendGif(message, ptr->client);
-                        found = 1;
-                    }
-                }
-                if (!found) {
-                    memset(temp_buffer, '\0', sizeof(temp_buffer));
-                    snprintf(temp_buffer, BUFFER_SIZE, "Server: The user is no longer available.");
-                    send(client.socket, temp_buffer, strlen(temp_buffer), 0);
-                }
-            }
         }
     }
 
@@ -667,7 +667,10 @@ void *inputWindowManagement(void *arg)
         use_window(chat_win, printInChatWin, temp_buffer);
 
         if (strncmp(buffer, ".close", 6) == 0) shutdownServer(c_list);
-        else if (strncmp(buffer, ".clear", 6) == 0) {use_window(chat_win, clearChatWin, 0); use_window(input_win, clearInputWin, 0);}
+        else if (strncmp(buffer, ".clear", 6) == 0) {
+            use_window(chat_win, clearChatWin, 0); 
+            use_window(input_win, clearInputWin, 0);
+        }
         else if (strncmp(buffer, ".listc", 6) == 0) {
             memset(temp_buffer, '\0', BUFFER_SIZE);
             use_window(chat_win, printInChatWin, printClientConn(temp_buffer));

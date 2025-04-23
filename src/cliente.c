@@ -352,11 +352,19 @@ int main() {
         snprintf(temp_buffer, sizeof(temp_buffer), "Me: %s", buffer);
         use_window(chat_win, printInChatWin, temp_buffer);
         
-        if (strncmp(buffer, ".close", 6) == 0) {
-            endwin(); close(client); free(temp);
-            exit(0);
+        if (strncmp(buffer, ".", 1) != 0) {
+            memset(temp_buffer, '\0', BUFFER_SIZE);
+            snprintf(temp_buffer, BUFFER_SIZE, ".m|%s:%s", linkedTo, buffer);
+            send(client_i.socket, temp_buffer, strlen(temp_buffer), 0);
+            if (strncmp(buffer, "gif", 3) == 0) sendGif(temp_buffer, client_i);
         }
-        else if (strncmp(buffer, ".clear", 6) == 0) use_window(chat_win, clearChatWin, 0);
+        else if (strncmp(buffer, ".close", 6) == 0) {
+            close(client); free(temp); endwin(); exit(0);
+        }
+        else if (strncmp(buffer, ".clear", 6) == 0) {
+            use_window(chat_win, clearChatWin, 0);
+            use_window(input_win, clearInputWin, 0);
+        }
         else if (strncmp(buffer, ".help", 5) == 0) {
             memset(temp_buffer, '\0', BUFFER_SIZE);
             use_window(chat_win, printInChatWin, help(temp_buffer));
@@ -395,7 +403,6 @@ int main() {
             memset(temp_buffer, '\0', BUFFER_SIZE);
             snprintf(temp_buffer, BUFFER_SIZE, ".m|%s:%s", linkedTo, buffer);
             send(client_i.socket, temp_buffer, strlen(temp_buffer), 0);
-            if (strncmp(buffer, "gif", 3) == 0) sendGif(temp_buffer, client_i);
         }
     }
 
