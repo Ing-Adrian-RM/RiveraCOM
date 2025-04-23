@@ -198,6 +198,7 @@ void *receive_messages() {
             exit(0);
         }
     }
+    if (th_pause) pthread_kill(reception_thread, SIGSTOP);
     return NULL;
 }
 
@@ -339,7 +340,6 @@ void setup() {
     use_window(chat_win, printInChatWin, buffer);
 
     // Create a thread to receive messages from the server
-    pthread_t reception_thread;
     pthread_create(&reception_thread, NULL, receive_messages, NULL);
     pthread_detach(reception_thread);
 }
@@ -400,9 +400,11 @@ int main() {
             use_window(chat_win, printInChatWin, temp_buffer);
         }
         else if (strncmp(buffer, ".rename", 7) == 0 || strncmp(buffer, ".recharge", 9) == 0 || strncmp(buffer, ".userinfo", 9) == 0 || strncmp(buffer, ".deleteuser", 9) == 0) {
+            th_pause = 1;
             send(client_i.socket, buffer, strlen(buffer), 0);
             memset(temp_buffer, '\0', sizeof(temp_buffer));
             int bytes_read = read(client, temp_buffer, BUFFER_SIZE);
+            pthread_kill(reception_thread, SIGCONT);
             use_window(chat_win, printInChatWin, temp_buffer);
             if (strncmp(temp_buffer, "User deleted from database", 26) == 0){
                 memset(temp_buffer, '\0', BUFFER_SIZE);

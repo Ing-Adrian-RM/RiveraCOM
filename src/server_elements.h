@@ -19,23 +19,33 @@
 
 //Includes ////////////////////////////////////////////////////////////////////
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <arpa/inet.h>
-#include <pthread.h>
-#include <mysql/mysql.h>
-#include <ncurses.h>
-#include <ifaddrs.h>
-#include <sys/stat.h>
+// Standard libraries
+#include <stdio.h>      // Standard Input/Output library
+#include <stdlib.h>     // Standard library for memory allocation, process control, etc.
+#include <string.h>     // String manipulation functions
+
+// POSIX libraries
+#include <unistd.h>     // Standard symbolic constants and types
+#include <arpa/inet.h>  // Definitions for internet operations
+#include <pthread.h>    // POSIX threads
+#include <signal.h>     // Signal handling
+
+// MySQL library
+#include <mysql/mysql.h> // MySQL database manipulation
+
+// ncurses library
+#include <ncurses.h>    // Terminal handling library
+
+// System libraries
+#include <ifaddrs.h>    // Interface address structures
+#include <sys/stat.h>   // File status information
 
 
 //Variables ///////////////////////////////////////////////////////////////////
 
 extern char SERVER[BUFFER_SIZE];
 char query[QUERY_SIZE], *temp = NULL, linkedTo[100] = "Server";
-int client, server, line=1, max_width, BUFFER_SEND_SIZE, connected_clients;
+int client, server, line=1, max_width, BUFFER_SEND_SIZE, th_pause = 0;
 
 //Structs /////////////////////////////////////////////////////////////////////
 
@@ -61,6 +71,7 @@ WINDOW *chat_win, *input_win;
 pthread_mutex_t lock;
 struct sockaddr_in server_addr, client_addr;
 socklen_t addr_size = sizeof(client_addr);
+pthread_t reception_thread;
 
 // Functions //////////////////////////////////////////////////////////////////
 
