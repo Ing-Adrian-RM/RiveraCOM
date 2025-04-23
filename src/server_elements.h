@@ -19,33 +19,24 @@
 
 //Includes ////////////////////////////////////////////////////////////////////
 
-// Standard libraries
 #include <stdio.h>      // Standard Input/Output library
 #include <stdlib.h>     // Standard library for memory allocation, process control, etc.
 #include <string.h>     // String manipulation functions
-
-// POSIX libraries
-#include <unistd.h>     // Standard symbolic constants and types
-#include <arpa/inet.h>  // Definitions for internet operations
-#include <pthread.h>    // POSIX threads
+#include <unistd.h>     // POSIX API for system calls
+#include <arpa/inet.h>  // Functions for internet operations (e.g., sockets)
+#include <pthread.h>    // POSIX threads for multithreading
+#include <mysql/mysql.h> // MySQL client library for database operations
+#include <ncurses.h>    // Library for terminal-based user interfaces
+#include <ifaddrs.h>    // Interface address structures and functions
+#include <sys/stat.h>   // File status and permissions
 #include <signal.h>     // Signal handling
-
-// MySQL library
-#include <mysql/mysql.h> // MySQL database manipulation
-
-// ncurses library
-#include <ncurses.h>    // Terminal handling library
-
-// System libraries
-#include <ifaddrs.h>    // Interface address structures
-#include <sys/stat.h>   // File status information
 
 
 //Variables ///////////////////////////////////////////////////////////////////
 
 extern char SERVER[BUFFER_SIZE];
 char query[QUERY_SIZE], *temp = NULL, linkedTo[100] = "Server";
-int client, server, line=1, max_width, BUFFER_SEND_SIZE, th_pause = 0;
+int client, server, line=1, max_width, BUFFER_SEND_SIZE;
 
 //Structs /////////////////////////////////////////////////////////////////////
 
@@ -68,7 +59,6 @@ MYSQL_ROW row;
 CLIENT client_i;
 CLIENT_LIST_PTR c_list;
 WINDOW *chat_win, *input_win;
-pthread_mutex_t lock;
 struct sockaddr_in server_addr, client_addr;
 socklen_t addr_size = sizeof(client_addr);
 pthread_t reception_thread;
